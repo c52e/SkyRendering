@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="include\GLWindow.h" />
+    <ClInclude Include="include\Utils.h" />
+    <ClInclude Include="include\GLProgram.h" />
+    <ClInclude Include="include\Camera.h" />
+    <ClInclude Include="include\Singleton.h" />
+    <ClInclude Include="include\GBuffer.h" />
+    <ClInclude Include="include\Mesh.h" />
+    <ClInclude Include="include\Samplers.h" />
+    <ClInclude Include="include\ScreenRectangle.h" />
+    <ClInclude Include="include\ShadowMap.h" />
+    <ClInclude Include="include\ImGuiExt.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\GLWindow.cpp" />
+    <ClCompile Include="src\Utils.cpp" />
+    <ClCompile Include="src\GLProgram.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\GBuffer.cpp" />
+    <ClCompile Include="src\Mesh.cpp" />
+    <ClCompile Include="src\Samplers.cpp" />
+    <ClCompile Include="src\ScreenRectangle.cpp" />
+    <ClCompile Include="src\ShadowMap.cpp" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,9 @@
+[submodule "external/glm"]
+	path = external/glm
+	url = git@github.com:g-truc/glm.git
+[submodule "external/stb"]
+	path = external/stb
+	url = git@github.com:nothings/stb.git
+[submodule "external/magic_enum"]
+	path = external/magic_enum
+	url = git@github.com:Neargye/magic_enum.git
