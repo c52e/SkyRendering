@@ -1,31 +1,25 @@
 #pragma once
 
-#include <memory>
-
 #include <glm/glm.hpp>
-#include <glad/glad.h>
 
+#include "gl.hpp"
 #include "Singleton.h"
 #include "GLProgram.h"
 
 class ShadowMap {
 public:
 	ShadowMap(int width, int height);
-	
-	~ShadowMap();
 
 	void ClearBindViewport() const;
 
-	GLuint depth_texture() const { return depth_texture_; }
+	GLuint depth_texture() const { return depth_texture_.id(); }
 
 private:
-	void Clean();
-
 	int width_;
 	int height_;
 
-	GLuint framebuffer_id_;
-	GLuint depth_texture_;
+	GLFramebuffer framebuffer_;
+	GLTexture depth_texture_;
 };
 
 class ShadowMapRenderer : public Singleton<ShadowMapRenderer> {
@@ -37,7 +31,7 @@ public:
 private:
 	ShadowMapRenderer();
 
-	std::unique_ptr<GLProgram> program_;
+	GLProgram program_;
 };
 
 glm::mat4 ComputeLightMatrix(float center_distance, float theta, float phi,

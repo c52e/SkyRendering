@@ -3,14 +3,7 @@
 #include <magic_enum.hpp>
 #include <imgui.h>
 
-template<class T>
-constexpr size_t MaxEnumStringViewSize() {
-    size_t maxsize = 0;
-    for (const auto& strview : magic_enum::enum_names<T>()) {
-        maxsize = maxsize < strview.size() ? strview.size() : maxsize;
-    }
-    return maxsize;
-}
+#include <reflection/util.h>
 
 template<class Enum>
 void EnumSelectable(const char* name, Enum* penum) {

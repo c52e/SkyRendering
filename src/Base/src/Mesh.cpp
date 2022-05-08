@@ -16,9 +16,9 @@ Mesh::Mesh(const MeshVertices& vertices) {
     bool has_uv = !vertices.uvs.empty();
     int stride = has_uv ? 8 : 6;
 
-    glCreateVertexArrays(1, &vao_);
-    glCreateBuffers(1, &vbo_);
-    glCreateBuffers(1, &ebo_);
+    vao_.Create();
+    vbo_.Create();
+    ebo_.Create();
     std::vector<float> data;
     data.reserve(vertices_num * stride);
     for (int i = 0; i < vertices_num; ++i) {
@@ -33,12 +33,12 @@ Mesh::Mesh(const MeshVertices& vertices) {
             data.push_back(vertices.uvs[i][1]);
         }
     }
-    glNamedBufferStorage(vbo_, sizeof(data[0]) * data.size(), data.data(), 0);
-    glNamedBufferStorage(ebo_, sizeof(vertices.indices[0]) * vertices.indices.size(),
+    glNamedBufferStorage(vbo_.id(), sizeof(data[0]) * data.size(), data.data(), 0);
+    glNamedBufferStorage(ebo_.id(), sizeof(vertices.indices[0]) * vertices.indices.size(),
         vertices.indices.data(), 0);
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+    glBindVertexArray(vao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_.id());
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_.id());
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(3 * sizeof(float)));
@@ -49,14 +49,8 @@ Mesh::Mesh(const MeshVertices& vertices) {
     }
 }
 
-Mesh::~Mesh() {
-    glDeleteVertexArrays(1, &vao_);
-    glDeleteBuffers(1, &vbo_);
-    glDeleteBuffers(1, &ebo_);
-}
-
 void Mesh::Draw() const {
-    glBindVertexArray(vao_);
+    glBindVertexArray(vao_.id());
     glDrawElements(mode, count, GL_UNSIGNED_INT, 0);
 }
 

@@ -1,12 +1,21 @@
 #include "GLWindow.h"
 
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
+#include <memory>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include "PerformanceMarker.h"
 #include "Utils.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define sprintf sprintf_s
+#include <stb_image_write.h>
+#undef sprintf
 
 GLWindow::GLWindow(const char* name, int width, int height, bool vsync) {
     SetCurrentDirToExe(); // 切换到exe所在目录
@@ -15,6 +24,9 @@ GLWindow::GLWindow(const char* name, int width, int height, bool vsync) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#if _DEBUG
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
 
     window = glfwCreateWindow(width, height, name, NULL, NULL);
     if (window == NULL)
@@ -30,6 +42,90 @@ GLWindow::GLWindow(const char* name, int width, int height, bool vsync) {
     {
         throw std::runtime_error("Failed to initialize GLAD");
     }
+
+#if _DEBUG
+    // https://learnopengl.com/In-Practice/Debugging
+    int flags; glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // makes sure errors are displayed synchronously
+        glDebugMessageCallback([](GLenum source,
+            GLenum type,
+            unsigned int id,
+            GLenum severity,
+            GLsizei length,
+            const char* message,
+            const void* userParam)
+            {
+                // ignore non-significant error/warning codes
+                if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
+
+                std::stringstream msg;
+                msg << "---------------\n";
+                msg << "Debug message (0x" << std::hex << id << "): \t";
+
+                switch (type)
+                {
+                case GL_DEBUG_TYPE_ERROR:
+                    msg << "Type: Error"; break;
+                case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+                    msg << "Type: Deprecated Behaviour"; break;
+                case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+                    msg << "Type: Undefined Behaviour"; break;
+                case GL_DEBUG_TYPE_PORTABILITY:
+                    msg << "Type: Portability"; break;
+                case GL_DEBUG_TYPE_PERFORMANCE:
+                    msg << "Type: Performance"; break;
+                case GL_DEBUG_TYPE_MARKER:
+                    msg << "Type: Marker"; break;
+                case GL_DEBUG_TYPE_PUSH_GROUP:
+                    msg << "Type: Push Group"; return; // Do not print
+                case GL_DEBUG_TYPE_POP_GROUP:
+                    msg << "Type: Pop Group"; return; // Do not print
+                case GL_DEBUG_TYPE_OTHER:
+                    msg << "Type: Other"; break;
+                }
+                msg << "\t";
+
+                switch (source)
+                {
+                case GL_DEBUG_SOURCE_API:
+                    msg << "Source: API"; break;
+                case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+                    msg << "Source: Window System"; break;
+                case GL_DEBUG_SOURCE_SHADER_COMPILER:
+                    msg << "Source: Shader Compiler"; break;
+                case GL_DEBUG_SOURCE_THIRD_PARTY:
+                    msg << "Source: Third Party"; break;
+                case GL_DEBUG_SOURCE_APPLICATION:
+                    msg << "Source: Application"; break;
+                case GL_DEBUG_SOURCE_OTHER:
+                    msg << "Source: Other"; break;
+                }
+                msg << "\t";
+
+                switch (severity)
+                {
+                case GL_DEBUG_SEVERITY_HIGH:
+                    msg << "Severity: high"; break;
+                case GL_DEBUG_SEVERITY_MEDIUM:
+                    msg << "Severity: medium"; break;
+                case GL_DEBUG_SEVERITY_LOW:
+                    msg << "Severity: low"; break;
+                case GL_DEBUG_SEVERITY_NOTIFICATION:
+                    msg << "Severity: notification"; break;
+                }
+                msg << "\n";
+                msg << message;
+                std::cout << msg.str() << std::endl;
+            }, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    }
+    else {
+        std::cerr << "Failed to create OpenGL Debug Context" << std::endl;
+    }
+#endif
 
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window,
@@ -67,7 +163,15 @@ GLWindow::GLWindow(const char* name, int width, int height, bool vsync) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGui::StyleColorsDark();
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
 }
@@ -82,16 +186,28 @@ GLWindow::~GLWindow() {
 
 void GLWindow::MainLoop() {
     while (!glfwWindowShouldClose(window)) {
-        HandleDisplayEvent();
+        {
+            PERF_MARKER("Frame")
+            HandleDisplayEvent();
+            {
+                PERF_MARKER("GUI")
+                ImGui_ImplOpenGL3_NewFrame();
+                ImGui_ImplGlfw_NewFrame();
+                ImGui::NewFrame();
 
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+                HandleDrawGuiEvent();
+                CheckError();
 
-        HandleDrawGuiEvent();
-
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+                ImGui::Render();
+                ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            }
+        }
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -122,4 +238,35 @@ void GLWindow::SetFullScreen(bool is_full_screen) {
 
 void GLWindow::Close() {
     glfwSetWindowShouldClose(window, true);
+}
+
+void GLWindow::Error(const std::string& msg) {
+    b_current_frame_error_ = true;
+    if (err_msgs_.size() >= 60)
+        err_msgs_.pop_front();
+    err_msgs_.push_back(msg);
+    std::cerr << msg << std::endl;
+}
+
+void GLWindow::ScreenShot(const char* path) {
+    auto [width, height] = GetWindowSize();
+    auto pixels = std::make_unique<std::byte[]>(width * height * 3);
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.get());
+    stbi_flip_vertically_on_write(true);
+    stbi_write_png(path, width, height, 3, pixels.get(), width * 3);
+}
+
+void GLWindow::CheckError() {
+    if (b_current_frame_error_)
+        ImGui::OpenPopup("Error");
+    if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        b_current_frame_error_ = false;
+        for (const auto& msg : err_msgs_)
+            ImGui::Text(msg.c_str());
+        if (ImGui::Button("OK", ImVec2(120, 0))) {
+            err_msgs_.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }

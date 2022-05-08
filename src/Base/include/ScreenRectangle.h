@@ -1,9 +1,6 @@
 #pragma once
 
-#include <memory>
-
-#include <glad/glad.h>
-
+#include "gl.hpp"
 #include "Singleton.h"
 #include "GLProgram.h"
 
@@ -11,21 +8,13 @@ class ScreenRectangle :public Singleton<ScreenRectangle> {
 public:
 	friend Singleton<ScreenRectangle>;
 
-	static inline const float vertices[] = {
-		-1.0f, 1.0f,
-		1.0f, 1.0f,
-		-1.0f, -1.0f,
-		1.0f, -1.0f,
-	};
-
 	void Draw();
 
 private:
 	ScreenRectangle();
-	~ScreenRectangle();
 
-	GLuint vao_;
-	GLuint vbo_;
+	GLVertexArray vao_;
+	GLBuffer vbo_;
 };
 
 class TextureVisualizer :public Singleton<TextureVisualizer> {
@@ -37,6 +26,6 @@ public:
 private:
 	TextureVisualizer();
 
-	std::unique_ptr<GLProgram> program_;
+	GLProgram program_;
 };
 

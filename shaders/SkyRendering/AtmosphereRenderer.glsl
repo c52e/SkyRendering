@@ -1,54 +1,44 @@
+#include "Atmosphere.glsl"
+#include "AtmosphereInterface.glsl"
 
 layout(binding = 0) uniform sampler2D transmittance_texture;
 layout(binding = 1) uniform sampler2D multiscattering_texture;
 layout(binding = 2) uniform sampler2D depth_stencil_texture;
-layout(binding = 3) uniform sampler2D normal_texture;
-layout(binding = 4) uniform sampler2D albedo_texture;
-layout(binding = 5) uniform sampler2DShadow shadow_map_texture;
-layout(binding = 6) uniform sampler2D blue_noise_texture;
-layout(binding = 7) uniform sampler2D star_texture;
-layout(binding = 8) uniform sampler2D earth_texture;
+layout(binding = 3) uniform sampler2D albedo_texture;
+layout(binding = 4) uniform sampler2D normal_texture;
+layout(binding = 5) uniform sampler2D orm_texture;
+layout(binding = 6) uniform sampler2DShadow shadow_map_texture;
+layout(binding = 7) uniform sampler2D blue_noise;
+layout(binding = 8) uniform sampler2D star_luminance;
 layout(binding = 9) uniform sampler2D sky_view_luminance_texture;
 layout(binding = 10) uniform sampler2D sky_view_transmittance_texture;
 layout(binding = 11) uniform sampler3D aerial_perspective_luminance_texture;
 layout(binding = 12) uniform sampler3D aerial_perspective_transmittance_texture;
+layout(binding = 13) uniform sampler2D shadow_map_depth_sampler;
 
 layout(std140, binding = 1) uniform AtmosphereRenderBufferData{
     vec3 sun_direction;
-    float exposure;
-
-    vec3 camera_position;
     float star_luminance_scale;
+    vec3 earth_center;
+    float camera_earth_center_distance;
+    vec3 camera_position;
+    float raymarching_steps;
+    vec3 up_direction;
+    float sky_view_lut_steps;
+    vec3 right_direction;
+    float aerial_perspective_lut_steps;
+    vec3 front_direction;
+    float aerial_perspective_lut_max_distance;
+    vec3 moon_position;
+    float moon_radius;
 
     mat4 inv_view_projection;
     mat4 light_view_projection;
 
-    vec3 up_direction;
-    float camera_earth_center_distance;
-    vec3 right_direction;
-    float raymarching_steps;
-    vec3 front_direction;
-    float sky_view_lut_steps;
-    vec2 padding10;
-    float aerial_perspective_lut_steps;
-    float aerial_perspective_lut_max_distance;
-    vec3 moon_position;
-    float moon_radius;
+    vec2 padding00;
+    float blocker_kernel_size_k;
+    float pcss_size_k;
 };
-
-vec3 GetWorldPositionFromNDCDepth(mat4 inv_view_projection, vec2 ndc, float depth) {
-    vec4 xyzw = inv_view_projection * vec4(ndc, depth * 2.0 - 1.0, 1.0);
-    return xyzw.xyz / xyzw.w;
-}
-
-bool FromSpaceIntersectTopAtmosphereBoundary(float r, float mu, out float near_distance) {
-    float discriminant = r * r * (mu * mu - 1.0) + top_radius * top_radius;
-    if (mu < 0.0 && discriminant >= 0.0) {
-        near_distance = ClampDistance(-r * mu - SafeSqrt(discriminant));
-        return true;
-    }
-    return false;
-}
 
 vec3 ComputeRaymarchingStartPositionAndChangeDistance(vec3 view_direction, inout float marching_distance) {
     vec3 start_position = camera_position;
@@ -164,7 +154,7 @@ void main() {
     vec3 luminance = vec3(0);
     if (marching_distance > 0) {
 #if DITHER_SAMPLE_POINT_ENABLE
-        float start_i = texelFetch(blue_noise_texture, ivec2(gl_GlobalInvocationID.xy) & 0x3f, 0).x;
+        float start_i = texelFetch(blue_noise, ivec2(gl_GlobalInvocationID.xy) & 0x3f, 0).x;
 #else
         float start_i = 0.5;
 #endif
@@ -175,7 +165,7 @@ void main() {
 #if MOON_SHADOW_ENABLE
             moon_position, moon_radius,
 #endif
-            start_i, start_position, view_direction,
+            start_i, earth_center, start_position, view_direction,
             sun_direction, marching_distance, sky_view_lut_steps, transmittance);
     }
     imageStore(luminance_image, ivec2(gl_GlobalInvocationID.xy), vec4(luminance, 0.0));
@@ -185,23 +175,12 @@ void main() {
 #endif
 
 
-vec3 GetPositionFromAerialPerspectiveTextureIndex(ivec3 index,
+float GetMarchingDistanceFromAerialPerspectiveTextureIndex(ivec3 index,
         vec3 camera_position, mat4 inv_view_projection, out vec3 view_direction) {
     vec3 uvw = vec3(index) / vec3(AERIAL_PERSPECTIVE_LUT_SIZE - 1);
-    vec3 position = GetWorldPositionFromNDCDepth(inv_view_projection, uvw.xy * 2.0 - 1.0, 0);
+    vec3 position = ProjectiveMul(inv_view_projection, vec3(uvw.xy * 2.0 - 1.0, 0));
     view_direction = normalize(position - camera_position);
-    float distance_from_camera = uvw.z * uvw.z * aerial_perspective_lut_max_distance;
-    position = camera_position + view_direction * distance_from_camera;
-    return position;
-}
-
-vec3 GetTextureCoordFromUnitRange(vec3 xyz, ivec3 texture_size) {
-    return 0.5 / vec3(texture_size) + xyz * (1.0 - 1.0 / vec3(texture_size));
-}
-
-vec3 GetAerialPerspectiveTextureUvwFromTexCoordDistance(vec2 TexCoord, float marching_distance) {
-    return GetTextureCoordFromUnitRange(vec3(TexCoord, 
-        sqrt(marching_distance / aerial_perspective_lut_max_distance)), AERIAL_PERSPECTIVE_LUT_SIZE);
+    return uvw.z * uvw.z * aerial_perspective_lut_max_distance;
 }
 
 #ifdef AERIAL_PERSPECTIVE_COMPUTE_PROGRAM
@@ -211,25 +190,27 @@ layout(binding = 0, rgba32f) uniform image3D luminance_image;
 layout(binding = 1, rgba32f) uniform image3D transmittance_image;
 
 void main() {
-    float r = camera_earth_center_distance;
     vec3 view_direction;
-    vec3 fragment_position = GetPositionFromAerialPerspectiveTextureIndex(
+    float marching_distance = GetMarchingDistanceFromAerialPerspectiveTextureIndex(
         ivec3(gl_GlobalInvocationID.xyz), camera_position, inv_view_projection, view_direction);
-    vec3 earth_to_fragment = fragment_position - earth_center;
-    float fragment_r = length(earth_to_fragment);
-    if (fragment_r < bottom_radius) {
-        fragment_position = earth_center + earth_to_fragment / fragment_r * bottom_radius;
-        view_direction = normalize(fragment_position - camera_position);
-    }
-    float marching_distance = distance(camera_position, fragment_position);
-
-
-    vec3 start_position = ComputeRaymarchingStartPositionAndChangeDistance(view_direction, marching_distance);
     vec3 transmittance = vec3(1);
     vec3 luminance = vec3(0);
+    vec3 start_position = camera_position;
+    bool in_space = camera_earth_center_distance > top_radius;
+    if (in_space) {
+        float r = camera_earth_center_distance;
+        float mu = dot(view_direction, up_direction);
+        float near_distance;
+        if (FromSpaceIntersectTopAtmosphereBoundary(r, mu, near_distance)) {
+            start_position += near_distance * view_direction;
+        }
+        else {
+            marching_distance = 0;
+        }
+    }
     if (marching_distance > 0) {
 #if DITHER_SAMPLE_POINT_ENABLE
-        float start_i = texelFetch(blue_noise_texture, ivec2(gl_GlobalInvocationID.xy) & 0x3f, 0).x;
+        float start_i = texelFetch(blue_noise, ivec2(gl_GlobalInvocationID.xy) & 0x3f, 0).x;
 #else
         float start_i = 0.5;
 #endif
@@ -240,7 +221,7 @@ void main() {
 #if MOON_SHADOW_ENABLE
             moon_position, moon_radius,
 #endif
-            start_i, start_position, view_direction,
+            start_i, earth_center, start_position, view_direction,
             sun_direction, marching_distance, aerial_perspective_lut_steps, transmittance);
     }
     imageStore(luminance_image, ivec3(gl_GlobalInvocationID.xyz), vec4(luminance, 0.0));
@@ -252,12 +233,12 @@ void main() {
 
 #ifdef ATMOSPHERE_RENDER_FRAGMENT_SHADER
 
+#include "../Base/BRDF.glsl"
+
 in vec2 vTexCoord;
-in vec2 vNDC;
 layout(location = 0) out vec4 FragColor;
 
-vec3 ComputeObjectLuminance(sampler2D transmittance_texture, vec3 position,
-        vec3 normal, vec3 albedo, vec3 sun_direction) {
+vec3 ComputeObjectLuminance(vec3 position, vec3 view_direction) {
     float r = length(position - earth_center);
     vec3 object_up_direction = normalize(position - earth_center);
     float mu_s = dot(sun_direction, object_up_direction);
@@ -281,65 +262,51 @@ vec3 ComputeObjectLuminance(sampler2D transmittance_texture, vec3 position,
     }
 
     vec3 solar_illuminance_at_object = solar_illuminance * sun_visibility;
-    return solar_illuminance_at_object * max(dot(normal, sun_direction), 0) * albedo / PI;
+
+    MaterialData material_data = LoadMeterialData(albedo_texture, normal_texture, orm_texture, vTexCoord);
+
+    vec3 N = material_data.normal;
+    vec3 L = sun_direction;
+    vec3 V = -view_direction;
+    vec3 H = normalize(L + V);
+    float NdotL = clamp(dot(N, L), 0, 1);
+    float NdotV = clamp(dot(N, V), 0, 1);
+    float NdotH = clamp(dot(N, H), 0, 1);
+    float HdotV = clamp(dot(H, V), 0, 1);
+    vec3 brdf = BRDF(NdotL, NdotV, NdotH, HdotV, material_data);
+    return brdf * solar_illuminance_at_object * NdotL;
 }
 
-vec3 GetStarLuminance(sampler2D star_texture, vec3 view_direction) {
+vec3 GetStarLuminance(sampler2D star_luminance, vec3 view_direction) {
     float theta = acos(view_direction.y);
     float phi = atan(view_direction.x, view_direction.z);
-    vec2 coord = vec2((phi + PI) / (2 * PI), theta / PI);
-    return star_luminance_scale * pow(texture(star_texture, coord).xyz, vec3(2.2));
+    vec2 coord = vec2(INV_PI * 0.5 * phi + 0.5, theta * INV_PI);
+    return star_luminance_scale * pow(texture(star_luminance, coord).xyz, vec3(2.2));
 }
 
-vec3 GetEarthAlbedo(sampler2D earth_texture, vec3 ground_position) {
-    vec3 direction = normalize(ground_position - earth_center);
-    float theta = acos(direction.y);
-    float phi = atan(direction.x, direction.z);
-    vec2 coord = vec2((phi + PI) / (2 * PI), theta / PI);
-    return pow(texture(earth_texture, coord).xyz, vec3(2.2));
-}
-
-// 近似的环境光，使得晚上不至于地面全黑
-vec3 ComputeLuminanceLightedByStars(vec3 albedo) {
-    return 0.3 * star_luminance_scale * albedo / PI;
-}
-
-vec3 CEToneMapping(vec3 luminance, float adapted_lum) {
-    return 1 - exp(-adapted_lum * luminance);
-}
-
-// https://zhuanlan.zhihu.com/p/21983679
-vec3 ACESToneMapping(vec3 luminance, float adapted_lum) {
-    const float k = 10.0 / 16.0; // Make CEToneMapping ACESToneMapping produce similar result with same adpted_lum.
-
-    const float A = 2.51f * k * k;
-    const float B = 0.03f * k;
-    const float C = 2.43f * k * k;
-    const float D = 0.59f * k;
-    const float E = 0.14f;
-
-    luminance *= adapted_lum;
-    return (luminance * (A * luminance + B)) / (luminance * (C * luminance + D) + E);
+float SampleVisibilityFromShadowMap(vec3 position) {
+#if PCSS_ENABLE
+    return PCSS(shadow_map_texture, shadow_map_depth_sampler, blocker_kernel_size_k, pcss_size_k, light_view_projection, position);
+#else
+    return GetVisibilityFromShadowMap(shadow_map_texture, light_view_projection, position);
+#endif
 }
 
 void main() {
-    float depth = texture(depth_stencil_texture, vTexCoord).x;
-    vec3 fragment_position = GetWorldPositionFromNDCDepth(inv_view_projection, vNDC, depth);
+    float depth = texelFetch(depth_stencil_texture, ivec2(gl_FragCoord.xy), 0).x;
+    vec3 fragment_position = ProjectiveMul(inv_view_projection, vec3(vTexCoord, depth) * 2.0 - 1.0);
     vec3 view_direction = normalize(fragment_position - camera_position);
     float r = camera_earth_center_distance;
     float mu = dot(view_direction, up_direction);
-    bool intersect_bottom = RayIntersectsGround(r, mu);
 
-    float marching_distance = intersect_bottom ?
+    float marching_distance = RayIntersectsGround(r, mu) ?
         DistanceToBottomAtmosphereBoundary(r, mu) :
         DistanceToTopAtmosphereBoundary(r, mu);
 
     bool intersect_object = false;
     if (depth != 1.0) {
         float object_distance = length(fragment_position - camera_position);
-        intersect_object = length(fragment_position - earth_center) > bottom_radius;
-        if (intersect_bottom)
-            intersect_object = intersect_object && object_distance < marching_distance;
+        intersect_object = true;
         marching_distance = min(marching_distance, object_distance);
     }
 
@@ -348,7 +315,7 @@ void main() {
     vec3 luminance = vec3(0);
     if (marching_distance > 0) {
 #if DITHER_SAMPLE_POINT_ENABLE
-        float start_i = texelFetch(blue_noise_texture, ivec2(gl_FragCoord.xy) & 0x3f, 0).x;
+        float start_i = texelFetch(blue_noise, ivec2(gl_FragCoord.xy) & 0x3f, 0).x;
 #else
         float start_i = 0.5;
 #endif
@@ -364,7 +331,8 @@ void main() {
 #endif
 #if USE_AERIAL_PERSPECTIVE_LUT
         if (intersect_object) {
-            vec3 uvw = GetAerialPerspectiveTextureUvwFromTexCoordDistance(vTexCoord, marching_distance);
+            vec3 uvw = GetAerialPerspectiveTextureUvwFromTexCoordDistance(
+                vTexCoord, marching_distance, aerial_perspective_lut_max_distance, AERIAL_PERSPECTIVE_LUT_SIZE);
             luminance = texture(aerial_perspective_luminance_texture, uvw).rgb;
             transmittance = texture(aerial_perspective_transmittance_texture, uvw).rgb;
         }
@@ -377,44 +345,18 @@ void main() {
 #if MOON_SHADOW_ENABLE
                 moon_position, moon_radius,
 #endif
-                start_i, start_position, view_direction,
+                start_i, earth_center, start_position, view_direction,
                 sun_direction, marching_distance, raymarching_steps, transmittance);
 
     }
 
     if (intersect_object) {
-        vec3 normal = texture(normal_texture, vTexCoord).rgb;
-        vec3 albedo = texture(albedo_texture, vTexCoord).rgb;
         vec3 visibility = transmittance;
-        visibility *= GetVisibilityFromShadowMap(shadow_map_texture, light_view_projection, fragment_position);
+        visibility *= SampleVisibilityFromShadowMap(fragment_position);
 #if MOON_SHADOW_ENABLE
-        vec3 moon_direction = moon_position - fragment_position;
-        float moon_distance = length(moon_direction);
-        moon_direction /= moon_distance;
-        float moon_angular_radius = asin(clamp(moon_radius / moon_distance, -1, 1));
-        visibility *= GetVisibilityFromMoonShadow(acos(clamp(dot(sun_direction, moon_direction), -1, 1)), 
-            sun_angular_radius, moon_angular_radius);
+        visibility *= GetVisibilityFromMoonShadow(moon_position - fragment_position, moon_radius, sun_direction);
 #endif
-        luminance += visibility * ComputeObjectLuminance(
-            transmittance_texture, fragment_position, normal, albedo, sun_direction);
-        luminance += transmittance * ComputeLuminanceLightedByStars(albedo);
-    }
-    else if (intersect_bottom) {
-        vec3 ground_position = start_position + view_direction * marching_distance;
-        vec3 visibility = transmittance;
-        visibility *= GetVisibilityFromShadowMap(shadow_map_texture, light_view_projection, ground_position);
-#if MOON_SHADOW_ENABLE
-        vec3 moon_direction = moon_position - ground_position;
-        float moon_distance = length(moon_direction);
-        moon_direction /= moon_distance;
-        float moon_angular_radius = asin(moon_radius / moon_distance);
-        visibility *= GetVisibilityFromMoonShadow(acos(clamp(dot(sun_direction, moon_direction), -1, 1)),
-            sun_angular_radius, moon_angular_radius);
-#endif
-        vec3 albedo = GetEarthAlbedo(earth_texture, ground_position);
-        luminance += visibility * ComputeGroundLuminance(
-            transmittance_texture, ground_position, sun_direction, albedo);
-        luminance += transmittance * ComputeLuminanceLightedByStars(albedo);
+        luminance += visibility * ComputeObjectLuminance(fragment_position, view_direction);
     }
     else if (dot(view_direction, sun_direction) >= cos(sun_angular_radius)) {
         // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
@@ -433,14 +375,10 @@ void main() {
         vec3 solar_illuminance_at_eye = solar_illuminance * transmittance;
         luminance += solar_illuminance_at_eye / (PI * sun_angular_radius * sun_angular_radius) * factor;
     } else {
-        luminance += transmittance * GetStarLuminance(star_texture, view_direction);
+        luminance += transmittance * GetStarLuminance(star_luminance, view_direction);
     }
-#if DITHER_COLOR_ENABLE
-    float blue_noise = texelFetch(blue_noise_texture, ivec2(gl_FragCoord.xy) & 0x3f, 0).x;
-#else
-    float blue_noise = 0;
-#endif
-    FragColor = vec4(pow(TONE_MAPPING(luminance, exposure), vec3(1.0 / 2.2)) + blue_noise / 255.0, 1.0);
+
+    FragColor = vec4(luminance, 1.0);
 }
 
 #endif

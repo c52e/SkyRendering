@@ -3,14 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31112.23
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AtmosphereHillaire", "src\AtmosphereHillaire\AtmosphereHillaire.vcxproj", "{01F56434-5E4B-4733-8A4F-167257EB57C6}"
-	ProjectSection(ProjectDependencies) = postProject
-		{558AE84F-116B-4E51-B5B3-C8B1417DEAB1} = {558AE84F-116B-4E51-B5B3-C8B1417DEAB1}
-		{62FAAE5E-7269-40AC-BE95-FA8DDB78A7BB} = {62FAAE5E-7269-40AC-BE95-FA8DDB78A7BB}
-		{53BAF5A5-53D4-4EAC-9167-1D1F2B5A2DE2} = {53BAF5A5-53D4-4EAC-9167-1D1F2B5A2DE2}
-		{76CFBBF1-25D5-410D-916A-BF53ED1EAB28} = {76CFBBF1-25D5-410D-916A-BF53ED1EAB28}
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "external", "external", "{E7563A18-D9A9-4421-AF99-855E8156AE37}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glad", "external\glad\glad.vcxproj", "{558AE84F-116B-4E51-B5B3-C8B1417DEAB1}"
@@ -21,16 +13,14 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imgui", "external\imgui\img
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Base", "src\Base\Base.vcxproj", "{62FAAE5E-7269-40AC-BE95-FA8DDB78A7BB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SkyRendering", "src\SkyRendering\SkyRendering.vcxproj", "{01F56434-5E4B-4733-8A4F-167257EB57C6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Debug|x64.ActiveCfg = Debug|x64
-		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Debug|x64.Build.0 = Debug|x64
-		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Release|x64.ActiveCfg = Release|x64
-		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Release|x64.Build.0 = Release|x64
 		{558AE84F-116B-4E51-B5B3-C8B1417DEAB1}.Debug|x64.ActiveCfg = Debug|x64
 		{558AE84F-116B-4E51-B5B3-C8B1417DEAB1}.Debug|x64.Build.0 = Debug|x64
 		{558AE84F-116B-4E51-B5B3-C8B1417DEAB1}.Release|x64.ActiveCfg = Release|x64
@@ -47,6 +37,10 @@ Global
 		{62FAAE5E-7269-40AC-BE95-FA8DDB78A7BB}.Debug|x64.Build.0 = Debug|x64
 		{62FAAE5E-7269-40AC-BE95-FA8DDB78A7BB}.Release|x64.ActiveCfg = Release|x64
 		{62FAAE5E-7269-40AC-BE95-FA8DDB78A7BB}.Release|x64.Build.0 = Release|x64
+		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Debug|x64.ActiveCfg = Debug|x64
+		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Debug|x64.Build.0 = Debug|x64
+		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Release|x64.ActiveCfg = Release|x64
+		{01F56434-5E4B-4733-8A4F-167257EB57C6}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -15,6 +15,8 @@ void SetCurrentDirToExe() {
 
 std::string ReadFile(const char* path) {
 	std::ifstream fin(path);
+	if (!fin)
+		throw std::runtime_error(std::string("Read file failed: ") + path);
 	return std::string(std::istreambuf_iterator<char>{fin}, {});
 }
 

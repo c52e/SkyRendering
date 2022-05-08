@@ -1,36 +1,35 @@
 #pragma once
 
-#include <memory>
-
 #include <glm/glm.hpp>
-#include <glad/glad.h>
 
+#include "gl.hpp"
 #include "Singleton.h"
-#include "GLProgram.h"
+#include "GLReloadableProgram.h"
+#include "MeshObject.h"
 
 class GBuffer {
 public:
 	GBuffer(int width, int height);
-	~GBuffer();
 
-	GLuint id() const { return id_; }
-	GLuint normal_texture() const { return normal_texture_; }
-	GLuint albedo_texture() const { return albedo_texture_; }
-	GLuint depth_stencil_texture() const { return depth_stencil_texture_; }
+	GLuint id() const { return framebuffer_.id(); }
+	GLuint albedo() const { return albedo_.id(); }
+	GLuint normal() const { return normal_.id(); }
+	GLuint orm() const { return orm_.id(); }
+	GLuint depth_stencil() const { return depth_stencil_.id(); }
 
 private:
-	void Clean();
-
-	GLuint id_;
-	GLuint normal_texture_;
-	GLuint albedo_texture_;
-	GLuint depth_stencil_texture_;
+	GLFramebuffer framebuffer_;
+	GLTexture albedo_;
+	GLTexture normal_;
+	GLTexture orm_;
+	GLTexture depth_stencil_;
 };
 
 inline void Clear(const GBuffer& gbuffer) {
 	static const float black[] = { 0.f, 0.f, 0.f, 0.f };
 	glClearNamedFramebufferfv(gbuffer.id(), GL_COLOR, 0, black);
 	glClearNamedFramebufferfv(gbuffer.id(), GL_COLOR, 1, black);
+	glClearNamedFramebufferfv(gbuffer.id(), GL_COLOR, 2, black);
 	glClearNamedFramebufferfi(gbuffer.id(), GL_DEPTH_STENCIL, 0, 1.0f, 0);
 }
 
@@ -39,13 +38,10 @@ class GBufferRenderer : public Singleton<GBufferRenderer> {
 public:
 	friend Singleton<GBufferRenderer>;
 
-	void Setup(const glm::mat4 model_matrix, const glm::mat4& view_projection_matrix, glm::vec3 albedo);
-
-	void SetupWithTexture(const glm::mat4 model_matrix, const glm::mat4& view_projection_matrix, GLuint albedo_texture);
+	void Setup(const glm::mat4 model_matrix, const glm::mat4& view_projection_matrix, const Material& material);
 
 private:
 	GBufferRenderer();
 
-	std::unique_ptr<GLProgram> const_albedo_program_;
-	std::unique_ptr<GLProgram> albedo_texture_program_;
+	GLReloadableProgram program_;
 };

@@ -10,29 +10,12 @@ Camera::Camera(glm::vec3 position, float yaw, float pitch, float aspect)
 	UpdateVectors();
 }
 
-Camera::~Camera() {
-}
-
 glm::mat4 Camera::ViewMatrix() const {
 	return glm::lookAt(position_, position_ + front_, up_);
 }
 
 glm::mat4 Camera::ProjectionMatrix() const {
-	return glm::perspective(glm::radians(fovy_), aspect_, zNear_, zFar_);
-}
-
-glm::mat4 Camera::ViewMatrixVRLeft() const {
-	auto pleft = PositionVRLeft();
-	return glm::lookAt(pleft, pleft + front_, up_);
-}
-
-glm::mat4 Camera::ViewMatrixVRRight() const {
-	auto pright = PositionVRRight();
-	return glm::lookAt(pright, pright + front_, up_);
-}
-
-glm::mat4 Camera::ProjectionMatrixVR() const {
-	return glm::perspective(glm::radians(fovy_), aspect_ * 0.5f, zNear_, zFar_);
+	return glm::perspective(glm::radians(fovy), aspect_, zNear, zFar);
 }
 
 void Camera::Rotate(float dPitch, float dYaw) {

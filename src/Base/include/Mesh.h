@@ -3,7 +3,7 @@
 #include <vector>
 #include <array>
 
-#include <glad/glad.h>
+#include "gl.hpp"
 
 struct MeshVertices {
 	std::vector<std::array<float, 3>> positions;
@@ -17,17 +17,15 @@ class Mesh {
 public:
 	Mesh(const MeshVertices& vertices);
 
-	~Mesh();
-
 	void Draw() const;
 
 private:
 	GLsizei count;
 	GLenum mode;
 
-	GLuint vao_;
-	GLuint vbo_;
-	GLuint ebo_;
+	GLVertexArray vao_;
+	GLBuffer vbo_;
+	GLBuffer ebo_;
 
 };
 

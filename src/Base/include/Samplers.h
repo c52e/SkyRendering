@@ -1,65 +1,78 @@
 #pragma once
 
-#include <glad/glad.h>
+#include <magic_enum.hpp>
 
+#include "gl.hpp"
 #include "Singleton.h"
 
-class Samplers :public Singleton<Samplers> {
+class Samplers :private Singleton<Samplers> {
 public:
 	friend Singleton<Samplers>;
 
-	void SetAnisotropyEnable(bool enable);
+	enum class Wrap {
+		CLAMP_TO_EDGE = 0,
+		REPEAT,
+	};
+	enum class Mag {
+		NEAREST = 0,
+		LINEAR,
+	};
+	enum class MipmapMin {
+		NEAREST_MIPMAP_NEAREST = 0,
+		LINEAR_MIPMAP_NEAREST,
+		NEAREST_MIPMAP_LINEAR,
+		LINEAR_MIPMAP_LINEAR,
+	};
+	enum class NomipmapMin {
+		NEAREST = 0,
+		LINEAR,
+	};
+	static constexpr int kWrapCount = static_cast<int>(magic_enum::enum_count<Wrap>());
+	static constexpr int kMagCount = static_cast<int>(magic_enum::enum_count<Mag>());
+	static constexpr int kMipmapMinCount = static_cast<int>(magic_enum::enum_count<MipmapMin>());
+	static constexpr int kNomipmapMinCount = static_cast<int>(magic_enum::enum_count<NomipmapMin>());
 
-	GLuint linear_clamp_to_edge() const {
-		return linear_clamp_to_edge_;
+	static GLuint GetLinearNoMipmapClampToEdge() {
+		return Get(Wrap::CLAMP_TO_EDGE, Mag::LINEAR, NomipmapMin::LINEAR);
 	}
 
-	GLuint linear_no_mipmap_clamp_to_edge() const {
-		return linear_no_mipmap_clamp_to_edge_;
+	static GLuint GetNearestClampToEdge() {
+		return Get(Wrap::CLAMP_TO_EDGE, Mag::NEAREST, NomipmapMin::NEAREST);
 	}
 
-	GLuint shadow_map_sampler() const {
-		return shadow_map_sampler_;
+	static GLuint Get(Wrap wrap, Mag magfilter, MipmapMin minfilter) {
+		return Instance().mipmap_[toint(wrap)][toint(magfilter)][toint(minfilter)].id();
+	}
+	
+	static GLuint Get(Wrap wrap, Mag magfilter, NomipmapMin minfilter) {
+		return Instance().nomipmap_[toint(wrap)][toint(magfilter)][toint(minfilter)].id();
+	}
+	
+	static GLuint GetAnisotropySampler(Wrap wrap) {
+		if (Instance().anisotropy_enable_)
+			return Instance().anisotropy_[toint(wrap)].id();
+		else
+			return Get(wrap, Mag::LINEAR, MipmapMin::LINEAR_MIPMAP_LINEAR);
+	}
+
+	static GLuint GetShadowMapSampler() {
+		return Instance().shadow_map_.id();
+	}
+
+	static void SetAnisotropyEnable(bool enable) {
+		Instance().anisotropy_enable_ = enable;
 	}
 
 private:
 	Samplers();
-	~Samplers();
 
-	GLuint linear_clamp_to_edge_;
-	GLuint linear_no_mipmap_clamp_to_edge_;
-	GLuint shadow_map_sampler_;
+	template<class T>
+	static int toint(T x) { return static_cast<int>(x); }
+
+	bool anisotropy_enable_ = false;
+
+	GLSampler mipmap_[kWrapCount][kMagCount][kMipmapMinCount];
+	GLSampler nomipmap_[kWrapCount][kMagCount][kNomipmapMinCount];
+	GLSampler anisotropy_[kWrapCount];
+	GLSampler shadow_map_;
 };
-
-class Textures :public Singleton<Textures> {
-public:
-	friend Singleton<Textures>;
-
-	GLuint blue_noise_texture() const {
-		return blue_noise_texture_;
-	}
-
-	GLuint moon_albedo_texture() const {
-		return moon_albedo_texture_;
-	}
-
-	GLuint star_texture() const {
-		return star_texture_;
-	}
-
-	GLuint earth_texture() const {
-		return earth_texture_;
-	}
-
-private:
-	Textures();
-	~Textures();
-
-	GLuint blue_noise_texture_;
-	GLuint moon_albedo_texture_;
-	GLuint star_texture_;
-	GLuint earth_texture_;
-};
-
-
-

@@ -1,0 +1,55 @@
+#include "VolumetricCloudCommon.glsl"
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+
+layout(binding = 0) uniform sampler2D checkerboard_depth;
+layout(binding = 1) uniform sampler2D depth_texture;
+layout(binding = 2) uniform sampler2D recontruct_texture;
+
+layout(binding = 0, rgba16f) uniform image2D hdr_image;
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    float depth = texelFetch(depth_texture, pos, 0).x;
+    float linear_depth = DepthToLinearDepth(depth);
+    
+    ivec2 kOffsets[4] = {{-1, 1}, {1, 1}, {1, -1}, {-1, -1}}; // Same order as textureGather
+    // vec4 neighbor_depths = textureGather(checkerboard_depth, (vec2(pos) + 0.5) / vec2(imageSize(hdr_image)));
+    vec4 neighbor_depths = textureGather(checkerboard_depth, (vec2((pos - 1) >> 1) + 0.5) / vec2(textureSize(checkerboard_depth, 0)));
+    vec4 reconstructed_neighbors[4];
+    float min_delta_linear_depth = 1e10;
+    int nearest_i = 0;
+    bool is_edge = false;
+    for (int i = 0; i < 4; ++i) {
+        ivec2 half_pos = (pos + kOffsets[i]) >> 1;
+        reconstructed_neighbors[i] = texelFetch(recontruct_texture, half_pos, 0);
+        float neighbor_depth = neighbor_depths[i];
+        float neighbor_linear_depth = DepthToLinearDepth(neighbor_depth);
+        float delta_linear_depth = abs(linear_depth - neighbor_linear_depth);
+        if (delta_linear_depth < min_delta_linear_depth) {
+            nearest_i = i;
+            min_delta_linear_depth = delta_linear_depth;
+        }
+        if (delta_linear_depth > linear_depth * 0.1)
+            is_edge = true;
+    }
+
+    vec4 upscaled;
+    float max_a = max(max(reconstructed_neighbors[0].a, reconstructed_neighbors[1].a)
+                    , max(reconstructed_neighbors[2].a, reconstructed_neighbors[3].a));
+    float min_a = min(min(reconstructed_neighbors[0].a, reconstructed_neighbors[1].a)
+                    , min(reconstructed_neighbors[2].a, reconstructed_neighbors[3].a));
+    if (is_edge && max_a - min_a > 0.2) {
+        upscaled = reconstructed_neighbors[nearest_i];
+    } else {
+        upscaled = ((reconstructed_neighbors[0] + reconstructed_neighbors[1])
+                  + (reconstructed_neighbors[2] + reconstructed_neighbors[3])) * 0.25;
+    }
+
+	//upscaled = texelFetch(recontruct_texture, pos >> 1, 0);
+    vec3 luminance = upscaled.rgb;
+    float transmittance = upscaled.a;
+    vec4 color = imageLoad(hdr_image, pos);
+    color.rgb = color.rgb * (transmittance <= kMinTransmittance ? 0 : transmittance) + luminance;
+    imageStore(hdr_image, pos, color);
+}

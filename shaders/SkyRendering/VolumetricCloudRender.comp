@@ -1,0 +1,237 @@
+#include "AtmosphereInterface.glsl"
+#include "VolumetricCloudCommon.glsl"
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+
+layout(binding = 0) uniform sampler2D checkerboard_depth;
+layout(binding = 1) uniform sampler2D index_linear_depth_texture;
+layout(binding = 2) uniform sampler2D transmittance_texture;
+layout(binding = 3) uniform sampler3D aerial_perspective_luminance_texture;
+layout(binding = 4) uniform sampler3D aerial_perspective_transmittance_texture;
+layout(binding = 5) uniform sampler2D blue_noise;
+
+layout(binding = 0, rgba16f) uniform image2D render_image;
+layout(binding = 1, r32f) uniform image2D cloud_distance_image;
+
+layout(std140, binding = 2) uniform VolumetricCloudBufferData {
+    vec3 uSunDirection;
+	float uSunIlluminanceScale;
+	
+	float uBottomAltitude;
+	float uTopAltitude;
+	float uMaxRaymarchDistance;
+	float uMaxRaymarchSteps;
+
+    vec3 _cloud_padding;
+    float uMaxVisibleDistance;
+
+	vec3 uEnvColorScale;
+	float uShadowSteps;
+
+	float uShadowDistance;
+	float uAerialPerspectiveLutMaxDistance;
+	float uFrameID;
+	float uEarthRadius;
+};
+
+struct Intersect {
+    float t1;
+    float t2;
+};
+
+Intersect[2] RayShellIntersect(float r, float mu) {
+    Intersect[2] res;
+    res[0].t1 = res[0].t2 = res[1].t1 = res[1].t2 = 0.0;
+    float bottom_radius = uEarthRadius + uBottomAltitude;
+    float top_radius = uEarthRadius + uTopAltitude;
+    float discriminant_bottom = r * r * (mu * mu - 1.0) + bottom_radius * bottom_radius;
+    float discriminant_top = r * r * (mu * mu - 1.0) + top_radius * top_radius;
+    float sqrt_discriminant_bottom = sqrt(discriminant_bottom);
+    float sqrt_discriminant_top = sqrt(discriminant_top);
+    if (uCameraPos.z < uBottomAltitude) {
+        res[0].t1 = -r * mu + sqrt_discriminant_bottom;
+        res[0].t2 = -r * mu + sqrt_discriminant_top;
+    } else if (uCameraPos.z < uTopAltitude) {
+        if (discriminant_bottom >= 0.0 && mu < 0.0) {
+            res[0].t2 = -r * mu - sqrt_discriminant_bottom;
+            res[1].t1 = -r * mu + sqrt_discriminant_bottom;
+            res[1].t2 = -r * mu + sqrt_discriminant_top;
+        } else {
+            res[0].t2 = -r * mu + sqrt_discriminant_top;
+        }
+    } else /*if (uCameraPos.z >= uTopAltitude)*/{
+        if (discriminant_bottom >= 0.0 && mu < 0.0) {
+            res[0].t1 = -r * mu - sqrt_discriminant_top;
+            res[0].t2 = -r * mu - sqrt_discriminant_bottom;
+            res[1].t1 = -r * mu + sqrt_discriminant_bottom;
+            res[1].t2 = -r * mu + sqrt_discriminant_top;
+        } else if (discriminant_top >= 0.0 && mu < 0.0) {
+            res[0].t1 = -r * mu - sqrt_discriminant_top;
+            res[0].t2 = -r * mu + sqrt_discriminant_top;
+        }
+    }
+    return res;
+}
+
+struct RayMarchContext {
+    float t;
+    vec3 pos;
+    float height01;
+    float step_size;
+    float transmittance;
+    float transmittance_sum;
+    float weighted_t_sum;
+    vec2 sun_env;
+    float cos_sun_view;
+};
+
+float SunCosTheta(vec3 pos) {
+    vec3 up = normalize(vec3(pos.xy, pos.z + uEarthRadius));
+    return dot(up, uSunDirection);
+}
+
+float CalHeight01(vec3 pos) {
+    float altitude = length(vec3(pos.xy, pos.z + uEarthRadius)) - uEarthRadius;
+    return clamp((altitude - uBottomAltitude) / (uTopAltitude - uBottomAltitude), 0, 1);
+}
+
+void UpdateContext(inout RayMarchContext ctx, vec3 view_dir) {
+    ctx.pos = uCameraPos + view_dir * ctx.t;
+    ctx.height01 = CalHeight01(ctx.pos);
+}
+
+// Should be defined in material shader
+float SampleSigmaT(vec3 pos, float height01);
+
+float SampleShadow(vec3 pos) {
+    float optical_depth = 0.0;
+    float inv_shadow_steps = 1.0 / uShadowSteps;
+    vec3 sample_vector = uShadowDistance * uSunDirection;
+    float previous_t = 0.0;
+    // UE4 Non-linear shadow sample distribution
+    for (float t = inv_shadow_steps; t <= 1.0; t += inv_shadow_steps) {
+        float current_t = t * t;
+        float delta_t = current_t - previous_t;
+        vec3 sample_pos = pos + sample_vector * (previous_t + 0.5 * delta_t);
+        float sample_height01 = CalHeight01(sample_pos);
+        optical_depth += SampleSigmaT(sample_pos, sample_height01) * uShadowDistance * delta_t;
+        previous_t = current_t;
+    }
+    float transmittance = exp(-optical_depth);
+    return transmittance;
+}
+
+float HenyeyGreenstein(float cos_theta, float g) {
+    float a = 1.0 - g * g;
+    float b = 1.0 + g * g - 2.0 * g * cos_theta;
+    b *= sqrt(b);
+    return (0.25 * INV_PI) * a / b;
+}
+
+void RayMarchStep(inout RayMarchContext ctx) {
+    float sigma_t = SampleSigmaT(ctx.pos, ctx.height01);
+    if (sigma_t < 1e-5)
+        return;
+    float tr = exp(-ctx.step_size * sigma_t);
+    vec2 sun_env = vec2(0);
+    sun_env.g = ctx.height01;
+    float transmittance_to_sun = SampleShadow(ctx.pos);
+
+    // https://advances.realtimerendering.com/s2021/jpatry_advances2021/index.html#/96/0/8
+    float phase = mix(HenyeyGreenstein(ctx.cos_sun_view, -0.15) * 2.16,
+                      HenyeyGreenstein(ctx.cos_sun_view, 0.85),
+                      exp(-0.3 * sigma_t) * transmittance_to_sun);
+    sun_env.r = transmittance_to_sun * phase;
+
+    sun_env = sun_env - sun_env * tr;
+    ctx.sun_env += ctx.transmittance * sun_env;
+    ctx.transmittance_sum += ctx.transmittance;
+    ctx.weighted_t_sum += ctx.t * ctx.transmittance;
+    ctx.transmittance *= tr;
+}
+
+vec3 GetSunVisibility(vec3 pos) {
+    vec3 up_dir = vec3(pos.xy, pos.z + uEarthRadius);
+    float r = length(up_dir);
+    up_dir /= r;
+    float mu_s = dot(uSunDirection, up_dir);
+    return GetSunVisibility(transmittance_texture, r, mu_s);
+}
+
+vec3 GetAerialPerspective(vec2 uv, float t, float r, float mu, out vec3 transmittance) {
+    if (r > top_radius) {
+        float near_distance;
+        if (FromSpaceIntersectTopAtmosphereBoundary(r, mu, near_distance)) {
+            t -= near_distance;
+        } else {
+            t = 0;
+        }
+    }
+    vec3 uvw = GetAerialPerspectiveTextureUvwFromTexCoordDistance(
+        uv, t, uAerialPerspectiveLutMaxDistance, textureSize(aerial_perspective_luminance_texture, 0));
+    transmittance = texture(aerial_perspective_transmittance_texture, uvw).rgb;
+    vec3 luminance = texture(aerial_perspective_luminance_texture, uvw).rgb;
+    return luminance;
+}
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    uint index = uint(texelFetch(index_linear_depth_texture, pos, 0).r);
+    ivec2 pos_in_checkerboard = pos * 2 + IndexToOffset(index);
+
+    ivec2 image_size = textureSize(checkerboard_depth, 0);
+    vec2 uv = (vec2(pos_in_checkerboard) + 0.5) / image_size;
+    float depth = texelFetch(checkerboard_depth, pos_in_checkerboard, 0).x;
+    vec3 frag_pos = ProjectiveMul(uInvMVP, vec3(uv, depth) * 2.0 - 1.0);
+    vec3 view_dir = normalize(frag_pos - uCameraPos);
+    
+    float r = uCameraPos.z + uEarthRadius;
+    float mu = view_dir.z;
+    Intersect[2] intersect = RayShellIntersect(r, mu);
+    float frag_dist = distance(frag_pos, uCameraPos);
+    for (int i = 0; i < 2; ++i) {
+        intersect[i].t2 = clamp(min(frag_dist, uMaxVisibleDistance), intersect[i].t1, intersect[i].t2);
+    }
+
+    RayMarchContext ctx;
+    ctx.cos_sun_view = dot(uSunDirection, view_dir);
+    float dist = intersect[0].t2 - intersect[0].t1;
+    dist = min(dist, uMaxRaymarchDistance);
+    float num_steps = max(uMaxRaymarchSteps * (dist / uMaxRaymarchDistance), 1.0);
+    ctx.step_size = dist / num_steps;
+    ctx.transmittance = 1.0;
+    ctx.transmittance_sum = 0.0;
+    ctx.weighted_t_sum = 0.0;
+    ctx.sun_env = vec2(0.0);
+    float noise = texelFetch(blue_noise, pos & 0x3f, 0).x;
+    ctx.t = intersect[0].t1 + ctx.step_size * fract(noise + uFrameID * 0.61803398875);
+    for (uint cnt = uint(num_steps); cnt != 0; cnt--, ctx.t += ctx.step_size) {
+        UpdateContext(ctx, view_dir);
+        RayMarchStep(ctx);
+        if (ctx.transmittance < kMinTransmittance)
+            break;
+    }
+    float dist1 = intersect[1].t2 - intersect[1].t1;
+    if (dist1 > 0) {
+        dist1 = min(dist1, uMaxRaymarchDistance);
+        float num_steps1 = max(uMaxRaymarchSteps * (dist1 / uMaxRaymarchDistance), 1.0);
+        ctx.step_size = dist1 / num_steps1;
+        ctx.t = intersect[1].t1 + ctx.step_size * fract(noise + uFrameID * 0.61803398875);
+        for (uint cnt = uint(num_steps1); cnt != 0; cnt--, ctx.t += ctx.step_size) {
+            UpdateContext(ctx, view_dir);
+            RayMarchStep(ctx);
+            if (ctx.transmittance < kMinTransmittance)
+                break;
+        }
+    }
+    float average_t = ctx.weighted_t_sum == 0 ? frag_dist : ctx.weighted_t_sum / ctx.transmittance_sum;
+    imageStore(cloud_distance_image, pos, vec4(average_t));
+    vec3 average_pos = uCameraPos + view_dir * average_t;
+    vec3 luminance = ctx.sun_env.r * uSunIlluminanceScale * GetSunVisibility(average_pos) * solar_illuminance
+                   + ctx.sun_env.g * clamp(SunCosTheta(average_pos), 0, 1) * uEnvColorScale;
+    
+    vec3 atmosphere_transmittance;
+    vec3 atmosphere_luminance = GetAerialPerspective(uv, average_t, r, mu, atmosphere_transmittance);
+    luminance = luminance * atmosphere_transmittance + atmosphere_luminance * (1 - ctx.transmittance);
+    imageStore(render_image, pos, vec4(luminance, ctx.transmittance));
+}

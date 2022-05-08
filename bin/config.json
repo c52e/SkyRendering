@@ -1,0 +1,155 @@
+{
+    "anisotropy_enable_": true,
+    "atmosphere_render_init_parameters_": {
+        "aerial_perspective_lut_dither_sample_point_enable": false,
+        "moon_shadow_enable": false,
+        "pcss_enable": true,
+        "raymarching_dither_sample_point_enable": true,
+        "sky_view_lut_dither_sample_point_enable": false,
+        "use_aerial_perspective_lut": false,
+        "use_sky_view_lut": false,
+        "volumetric_light_enable": true
+    },
+    "atmosphere_render_parameters_": {
+        "aerial_perspective_lut_max_distance": 100.0,
+        "aerial_perspective_lut_steps": 40.0,
+        "raymarching_steps": 36.33700180053711,
+        "sky_view_lut_steps": 40.0,
+        "star_luminance_scale": 0.004999999888241291,
+        "sun_direction_phi": 175.63299560546875,
+        "sun_direction_theta": 83.93499755859375
+    },
+    "camera_": {
+        "aspect_": 1.7777777910232544,
+        "fovy": 45.0,
+        "front_": [
+            -0.9633942246437073,
+            0.23887574672698975,
+            -0.12169608473777771
+        ],
+        "pitch_": 13.820198059082031,
+        "position_": [
+            14.112503051757813,
+            0.21638034284114838,
+            -2.0145320892333984
+        ],
+        "right_": [
+            0.12532420456409454,
+            0.0,
+            -0.99211585521698
+        ],
+        "up_": [
+            0.23699241876602173,
+            0.9710501432418823,
+            0.029936913400888443
+        ],
+        "yaw_": -5572.80078125,
+        "zFar": 50000.0,
+        "zNear": 0.8999999761581421
+    },
+    "camera_speed_": 3.4000000953674316,
+    "draw_debug_textures_enable_": false,
+    "draw_gui_enable_": true,
+    "earth_": {
+        "moon_status": {
+            "direction_phi": 142.89199829101563,
+            "direction_theta": 54.82500076293945,
+            "distance": 38440.1015625,
+            "radius": 1737.0
+        },
+        "parameters": {
+            "bottom_radius": 6360.0,
+            "ground_albedo": [
+                0.4000000059604645,
+                0.4000000059604645,
+                0.4000000059604645
+            ],
+            "mie_absorption": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "mie_absorption_scale": 0.0004440000047907233,
+            "mie_exponential_distribution": 1.2000000476837158,
+            "mie_phase_g": 0.800000011920929,
+            "mie_scattering": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "mie_scattering_scale": 0.004600000102072954,
+            "multiscattering_mask": 1.0,
+            "multiscattering_steps": 27.777999877929688,
+            "ozone_absorption": [
+                0.3455609977245331,
+                1.0,
+                0.04518900066614151
+            ],
+            "ozone_absorption_scale": 0.0018810000037774444,
+            "ozone_center_altitude": 25.0,
+            "ozone_width": 15.0,
+            "rayleigh_exponential_distribution": 8.0,
+            "rayleigh_scattering": [
+                0.17528699338436127,
+                0.4096069931983948,
+                1.0
+            ],
+            "rayleigh_scattering_scale": 0.03310000151395798,
+            "solar_illuminance": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "sun_angular_radius": 0.26669999957084656,
+            "thickness": 60.0,
+            "transmittance_steps": 40.0
+        }
+    },
+    "full_screen_": false,
+    "post_process_parameters_": {
+        "bloom_filter_width": 0.029999999329447746,
+        "bloom_intensity": 0.2070000022649765,
+        "bloom_max_delta_luminance": 20.0,
+        "bloom_min_luminance": 1.0,
+        "dither_color_enable": true,
+        "exposure": 10.0,
+        "tone_mapping": "ACESToneMapping"
+    },
+    "volumetric_cloud_": {
+        "bottom_altitude_": 2.869999885559082,
+        "env_color_": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "env_color_scale_": 0.10000000149011612,
+        "material": {
+            "type": "class VolumetricCloudDefaultMaterial",
+            "data": {
+                "cloud_map_.repeat_size": 18.988000869750977,
+                "density_": 15.152000427246094,
+                "detail_param_": [
+                    0.4000000059604645,
+                    0.0
+                ],
+                "detail_texture_.repeat_size": 5.334000110626221,
+                "detail_wind_magnify_": 1.559999942779541,
+                "displacement_scale_": 1.0,
+                "displacement_texture_.repeat_size": 3.513000011444092,
+                "lod_bias_": 2.75600004196167,
+                "minfilter2d_": "NEAREST_MIPMAP_NEAREST",
+                "minfilter3d_": "NEAREST_MIPMAP_NEAREST",
+                "minfilter_displacement_": "NEAREST_MIPMAP_NEAREST",
+                "wind_speed_": 0.0
+            }
+        },
+        "max_raymarch_distance_": 33.05799865722656,
+        "max_raymarch_steps_": 159.28900146484375,
+        "max_visible_distance_": 2904.0,
+        "shadow_distance_": 2.8519999980926514,
+        "shadow_steps_": 6.258999824523926,
+        "sun_illuminance_scale_": 1.0,
+        "thickness_": 2.0959999561309814
+    },
+    "vsync_enable_": false
+}

@@ -8,30 +8,21 @@
 
 ShadowMap::ShadowMap(int width, int height)
 	: width_(width), height_(height) {
-	glCreateFramebuffers(1, &framebuffer_id_);
-	glCreateTextures(GL_TEXTURE_2D, 1, &depth_texture_);
-	glTextureStorage2D(depth_texture_, 1, GL_DEPTH_COMPONENT32F, width, height);
-	glNamedFramebufferTexture(framebuffer_id_, GL_DEPTH_ATTACHMENT, depth_texture_, 0);
+	framebuffer_.Create();
+	depth_texture_.Create(GL_TEXTURE_2D);
+	glTextureStorage2D(depth_texture_.id(), 1, GL_DEPTH_COMPONENT32F, width, height);
+	glNamedFramebufferTexture(framebuffer_.id(), GL_DEPTH_ATTACHMENT, depth_texture_.id(), 0);
 
-	if (glCheckNamedFramebufferStatus(framebuffer_id_, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		Clean();
+	if (glCheckNamedFramebufferStatus(framebuffer_.id(), GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		throw std::runtime_error("Shadow Map Framebuffer Incomplete");
 	}
 }
 
-ShadowMap::~ShadowMap() {
-	Clean();
-}
-
 void ShadowMap::ClearBindViewport() const {
-	glClearNamedFramebufferfi(framebuffer_id_, GL_DEPTH_STENCIL, 0, 1.0f, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_id_);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.id());
+	glClearDepthf(1.0f);
+	glClear(GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, width_, height_);
-}
-
-void ShadowMap::Clean() {
-	glDeleteFramebuffers(1, &framebuffer_id_);
-	glDeleteTextures(1, &depth_texture_);
 }
 
 static const char* kShadowMapRendererVertexSrc = R"(
@@ -51,12 +42,11 @@ void main() {
 )";
 
 ShadowMapRenderer::ShadowMapRenderer() {
-	program_ = std::make_unique<GLProgram>(
-		kShadowMapRendererVertexSrc, kShadowMapRendererFragmentSrc);
+	program_ = GLProgram(kShadowMapRendererVertexSrc, kShadowMapRendererFragmentSrc);
 }
 
 void ShadowMapRenderer::Setup(const glm::mat4 model_matrix, const glm::mat4 light_view_projection_matrix) {
-	glUseProgram(program_->id());
+	glUseProgram(program_.id());
 	auto mvp = light_view_projection_matrix * model_matrix;
 	glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(mvp));
 }

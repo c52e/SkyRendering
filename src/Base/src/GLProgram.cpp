@@ -4,6 +4,10 @@
 #include <array>
 #include <stdexcept>
 #include <vector>
+#include <filesystem>
+#include <regex>
+
+#include "Utils.h"
 
 namespace {
 
@@ -78,4 +82,30 @@ GLProgram::GLProgram(const char* compute_src, GLuint external_compute_shader) {
 GLProgram::~GLProgram() {
 	if (id_ != 0)
 		glDeleteProgram(id_);
+}
+
+std::string Replace(std::string src, const std::string& from, const std::string& to) {
+	for (;;) {
+		auto index = src.find(from);
+		if (index == std::string::npos)
+			break;
+		src.replace(index, from.size(), to);
+	}
+	return src;
+}
+
+std::string ReadWithPreprocessor(const char* filepath) {
+	namespace fs = std::filesystem;
+	fs::path fpath = filepath;
+	auto dir = fpath.parent_path();
+	auto src = ReadFile(filepath);
+	std::regex pattern("#include[ \t]*\"(.+)\"");
+	std::smatch match;
+	while (std::regex_search(src, match, pattern)) {
+		auto header_path = dir / match.str(1);
+		auto header = ReadWithPreprocessor(header_path.string().c_str());
+		src = src.substr(0, match.position()) + header 
+			+ src.substr(match.position() + match.length(), src.size() - match.position() - match.length());
+	}
+	return src;
 }

@@ -1,0 +1,42 @@
+#include "VolumetricCloudCommon.glsl"
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+
+layout(binding = 0) uniform sampler2D checkerboard_depth;
+
+layout(binding = 0, rg32f) uniform image2D index_linear_depth;
+
+uint PosToIndex(ivec2 pos) {
+    return (uBaseShadingIndex + ((pos.x + pos.y) & 1)) & 3;
+}
+
+void main() {
+    // https://zhuanlan.zhihu.com/p/127435500
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec2 coord = (vec2(pos) + 0.5) / vec2(imageSize(index_linear_depth));
+    vec4 depth_tile = textureGather(checkerboard_depth, coord);
+
+    uint nearest_index = 0;
+    uint farthest_index = 0;
+    for (uint i = 1; i < 4; ++i) {
+        nearest_index = depth_tile[i] < depth_tile[nearest_index] ? i : nearest_index;
+        farthest_index = depth_tile[i] > depth_tile[farthest_index] ? i : farthest_index;
+    }
+    float nearest_linear_depth = DepthToLinearDepth(depth_tile[nearest_index]);
+    float farthest_linear_depth = DepthToLinearDepth(depth_tile[farthest_index]);
+    uint close_to_nearest_count = 0;
+    uint close_to_farthest_count = 0;
+    const ivec2 kTileOffsets[8] = {{0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}};
+    for (int i = 0; i < 8; ++i) {
+        ivec2 tile_lt_pos = pos + kTileOffsets[i];
+        float depth = texelFetch(checkerboard_depth, (tile_lt_pos << 1) + IndexToOffset(PosToIndex(tile_lt_pos)), 0).r;
+        float linear_depth = DepthToLinearDepth(depth);
+        float max_delta_allowed = linear_depth * 0.25;
+        if (abs(linear_depth - nearest_linear_depth) < max_delta_allowed)
+            ++close_to_nearest_count;
+        if (abs(linear_depth - farthest_linear_depth) < max_delta_allowed)
+            ++close_to_farthest_count;
+    }
+    uint index = close_to_nearest_count == 0 ? nearest_index : close_to_farthest_count == 0 ? farthest_index : PosToIndex(pos);
+    imageStore(index_linear_depth, pos, vec4(float(index), DepthToLinearDepth(depth_tile[index]), 0.0, 0.0));
+}

@@ -11,11 +11,25 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AppWindow.cpp" />
     <ClCompile Include="Atmosphere.cpp" />
+    <ClCompile Include="AtmosphereRenderer.cpp" />
+    <ClCompile Include="Earth.cpp" />
+    <ClCompile Include="IVolumetricCloudMaterial.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="VolumetricCloud.cpp" />
+    <ClCompile Include="VolumetricCloudDefaultMaterial.cpp" />
+    <ClCompile Include="VolumetricCloudMinimalMaterial.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AppWindow.h" />
     <ClInclude Include="Atmosphere.h" />
+    <ClInclude Include="AtmosphereRenderer.h" />
+    <ClInclude Include="Earth.h" />
+    <ClInclude Include="IVolumetricCloudMaterial.h" />
+    <ClInclude Include="VolumetricCloud.h" />
+    <ClInclude Include="VolumetricCloudDefaultMaterial.h" />
+    <ClInclude Include="VolumetricCloudMinimalMaterial.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\external\glad\glad.vcxproj">
@@ -32,14 +46,27 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\shaders\AtmosphereHillaire\atmosphere.glsl" />
-    <None Include="..\..\shaders\AtmosphereHillaire\atmosphere_renderer.glsl" />
+    <None Include="..\..\shaders\SkyRendering\Atmosphere.glsl" />
+    <None Include="..\..\shaders\SkyRendering\AtmosphereInterface.glsl" />
+    <None Include="..\..\shaders\SkyRendering\AtmosphereRenderer.glsl" />
+    <None Include="..\..\shaders\SkyRendering\CheckerboardGen.comp" />
+    <None Include="..\..\shaders\SkyRendering\Common.glsl" />
+    <None Include="..\..\shaders\SkyRendering\EarthRender.frag" />
+    <None Include="..\..\shaders\SkyRendering\NoiseGen.comp" />
+    <None Include="..\..\shaders\SkyRendering\Shadow.glsl" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterial0.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialMinimal.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudReconstruct.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudRender.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudCommon.glsl" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudIndexGen.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudUpscale.comp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{01f56434-5e4b-4733-8a4f-167257eb57c6}</ProjectGuid>
-    <RootNamespace>AtmosphereHillaire</RootNamespace>
+    <RootNamespace>SkyRendering</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -63,9 +90,11 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\base.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\base.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -83,9 +112,8 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>PI=3.14159265358979323846;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\glad\include;$(SolutionDir)external\glfw\include;$(SolutionDir)external\imgui\include;$(SolutionDir)external\glm;$(SolutionDir)external\magic_enum\include;$(SolutionDir)src\Base\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -99,9 +127,8 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>PI=3.14159265358979323846;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\glad\include;$(SolutionDir)external\glfw\include;$(SolutionDir)external\imgui\include;$(SolutionDir)external\glm;$(SolutionDir)external\magic_enum\include;$(SolutionDir)src\Base\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

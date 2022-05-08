@@ -1,6 +1,8 @@
 #pragma once
 
 #include <tuple>
+#include <deque>
+#include <string>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -19,6 +21,10 @@ public:
 	void SetFullScreen(bool is_full_screen);
 
 	void Close();
+
+	void Error(const std::string& msg);
+
+	void ScreenShot(const char* path);
 
 protected:
 	GLFWwindow* window;
@@ -43,5 +49,10 @@ private:
 	virtual void HandleMouseWheelEvent(double yoffset) {}
 
 	virtual void HandleDropEvent(int count, const char** paths) {}
+
+	void CheckError();
+
+	std::deque<std::string> err_msgs_;
+	bool b_current_frame_error_ = false;
 };
 

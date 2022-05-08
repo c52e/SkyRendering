@@ -4,16 +4,6 @@
 
 #include "Samplers.h"
 
-static const char* kTextureVisualizerVertexSrc = R"(
-#version 460
-layout(location = 0) in vec2 aPos;
-out vec2 vTexCoord;
-void main() {
-	vTexCoord = aPos * 0.5 + 0.5;
-	gl_Position = vec4(aPos, 0.0, 1.0);
-}
-)";
-
 static const char* kTextureVisualizerFragmentSrc = R"(
 #version 460
 in vec2 vTexCoord;
@@ -25,40 +15,67 @@ void main() {
 }
 )";
 
+#define QUAD_METHOD 2
+/*
+Tex Hit Rate
+            0       1       2
+1280x720    85.49   85.50   85.58
+1920x1080   92.06   92.06   92.11
+
+Tex SOL
+            0       1       2
+1280x720    19.4    20.1    20.4
+1920x1080   44.6    44.0    45.0
+*/
+
+#if QUAD_METHOD == 0
+static const float vertices[][2] = {
+    {-1.0f,  1.0f},
+    {-1.0f, -1.0f},
+    { 1.0f,  1.0f },
+    { 1.0f, -1.0f},
+};
+#elif QUAD_METHOD == 1
+static const float vertices[][2] = {
+    {-1.0f, -1.0f},
+    { 1.0f, -1.0f},
+    {-1.0f,  1.0f},
+    { 1.0f,  1.0f },
+};
+#elif QUAD_METHOD == 2
+static const float vertices[][2] = {
+    {-1.0f, -1.0f},
+    { 3.0f, -1.0f},
+    {-1.0f,  3.0f }
+};
+#endif
+
 ScreenRectangle::ScreenRectangle() {
-	glCreateVertexArrays(1, &vao_);
-    glCreateBuffers(1, &vbo_);
-    glNamedBufferStorage(vbo_, sizeof(vertices), vertices, 0);
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    vao_.Create();
+    vbo_.Create();
+    glNamedBufferStorage(vbo_.id(), sizeof(vertices), vertices, 0);
+    glBindVertexArray(vao_.id());
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_.id());
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertices[0]), (void*)0);
     glEnableVertexAttribArray(0);
 }
 
-ScreenRectangle::~ScreenRectangle() {
-    glDeleteVertexArrays(1, &vao_);
-    glDeleteBuffers(1, &vbo_);
-}
-
 void ScreenRectangle::Draw() {
-    glBindVertexArray(vao_);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(vao_.id());
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, static_cast<GLsizei>(std::size(vertices)));
 }
 
 
 TextureVisualizer::TextureVisualizer() {
-    program_ = std::make_unique<GLProgram>(
-        kTextureVisualizerVertexSrc, kTextureVisualizerFragmentSrc);
+    program_ = GLProgram(kCommonVertexSrc, kTextureVisualizerFragmentSrc);
 }
 
 void TextureVisualizer::VisualizeTexture(GLuint texture_id, float scale) {
-    glUseProgram(program_->id());
+    glUseProgram(program_.id());
     glUniform1f(0, scale);
 
-    std::array textures = { texture_id };
-    glBindTextures(0, static_cast<GLsizei>(textures.size()), textures.data());
-    std::array samplers = { Samplers::Instance().linear_clamp_to_edge() };
-    glBindSamplers(0, static_cast<GLsizei>(samplers.size()), samplers.data());
+    GLBindTextures({ texture_id });
+    GLBindSamplers({ Samplers::GetAnisotropySampler(Samplers::Wrap::CLAMP_TO_EDGE) });
 
     ScreenRectangle::Instance().Draw();
 }

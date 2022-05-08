@@ -1,25 +1,28 @@
-#define PI 3.1415926535897932384626433832795
+#ifndef __ATMOSPHERE_GLSL
+#define __ATMOSPHERE_GLSL
+
+#include "Common.glsl"
 
 layout(std140, binding = 0) uniform AtmosphereBufferData{
     vec3 solar_illuminance;
     float sun_angular_radius;
 
     vec3 rayleigh_scattering;
-    float rayleigh_exponential_distribution;
+    float inv_rayleigh_exponential_distribution;
 
     vec3 mie_scattering;
-    float mie_exponential_distribution;
+    float inv_mie_exponential_distribution;
 
     vec3 mie_absorption;
     float ozone_center_altitude;
 
     vec3 ozone_absorption;
-    float ozone_width;
+    float inv_ozone_width;
 
     vec3 ground_albedo;
     float mie_phase_g;
 
-    vec3 earth_center;
+    vec3 _atmosphere_padding;
     float multiscattering_mask;
 
     float bottom_radius;
@@ -27,6 +30,9 @@ layout(std140, binding = 0) uniform AtmosphereBufferData{
     float transmittance_steps;
     float multiscattering_steps;
 };
+
+// https://ebruneton.github.io/precomputed_atmospheric_scattering/
+// https://github.com/sebh/UnrealEngineSkyAtmosphere
 
 float ClampCosine(float mu) {
     return clamp(mu, -1.0, 1.0);
@@ -112,15 +118,15 @@ vec3 GetSunVisibility(sampler2D transmittance_texture, float r, float mu_s) {
 
 vec3 GetExtinction(float altitude) {
     vec3 rayleigh_extinction = rayleigh_scattering *
-        exp(-altitude / rayleigh_exponential_distribution);
+        exp(-altitude * inv_rayleigh_exponential_distribution);
 
     vec3 mie_extinction = (mie_scattering + mie_absorption) *
-        exp(-altitude / mie_exponential_distribution);
+        exp(-altitude * inv_mie_exponential_distribution);
 
     vec3 ozone_extinction = ozone_absorption *
         max(0, altitude < ozone_center_altitude ?
-            1 + (altitude - ozone_center_altitude) / ozone_width :
-            1 - (altitude - ozone_center_altitude) / ozone_width);
+            1 + (altitude - ozone_center_altitude) * inv_ozone_width :
+            1 - (altitude - ozone_center_altitude) * inv_ozone_width);
 
     return rayleigh_extinction + mie_extinction + ozone_extinction;
 }
@@ -148,8 +154,8 @@ float MiePhaseFunction(float g, float cos_theta) {
 }
 
 void GetScattering(float altitude, out vec3 rayleigh, out vec3 mie) {
-    rayleigh = rayleigh_scattering * exp(-altitude / rayleigh_exponential_distribution);
-    mie = mie_scattering * exp(-altitude / mie_exponential_distribution);
+    rayleigh = rayleigh_scattering * exp(-altitude * inv_rayleigh_exponential_distribution);
+    mie = mie_scattering * exp(-altitude * inv_mie_exponential_distribution);
 }
 
 void GetAltitudeMuSFromMultiscatteringTextureIndex(ivec2 index, ivec2 size, out float altitude, out float mu_s) {
@@ -183,6 +189,7 @@ float GetVisibilityFromShadowMap(sampler2DShadow shadow_map, mat4 light_view_pro
 
 float GetVisibilityFromMoonShadow(float sun_moon_angular_distance,
         float sun_angular_radius, float moon_angular_radius) {
+    // 可以用一个预计算的二维纹理加速
     float max_radius = sun_angular_radius + moon_angular_radius;
     float min_radius = abs(sun_angular_radius - moon_angular_radius);
     float sun_r2 = sun_angular_radius * sun_angular_radius;
@@ -202,6 +209,14 @@ float GetVisibilityFromMoonShadow(float sun_moon_angular_distance,
     return area_uncovered / (PI * sun_r2);
 }
 
+float GetVisibilityFromMoonShadow(vec3 moon_vector, float moon_radius, vec3 sun_direction) {
+    float inv_moon_distance = 1.0 / length(moon_vector);
+    vec3 moon_direction = moon_vector * inv_moon_distance;
+    float moon_angular_radius = asin(clamp(moon_radius * inv_moon_distance, -1, 1));
+    return GetVisibilityFromMoonShadow(acos(clamp(dot(sun_direction, moon_direction), -1, 1)),
+        sun_angular_radius, moon_angular_radius);
+}
+
 vec3 ComputeScatteredLuminance(sampler2D transmittance_texture
 #ifndef MULTISCATTERING_COMPUTE_PROGRAM
     , sampler2D multiscattering_texture
@@ -215,7 +230,7 @@ vec3 ComputeScatteredLuminance(sampler2D transmittance_texture
 #endif
     , float start_i
 #endif
-    , vec3 start_position, vec3 view_direction, vec3 sun_direction,
+    , vec3 earth_center, vec3 start_position, vec3 view_direction, vec3 sun_direction,
     float marching_distance, float steps, out vec3 transmittance
 #ifdef MULTISCATTERING_COMPUTE_PROGRAM
     , out vec3 L_f
@@ -265,12 +280,7 @@ vec3 ComputeScatteredLuminance(sampler2D transmittance_texture
         luminance_i += multiscattering_mask * multiscattering_contribution * scattering_i;
 #if MOON_SHADOW_ENABLE
         // 月亮阴影是大范围阴影，应该影响到多重散射的贡献
-        vec3 moon_direction_i = moon_position - position_i;
-        float moon_distance_i = length(moon_direction_i);
-        moon_direction_i /= moon_distance_i;
-        float moon_angular_radius_i = asin(moon_radius / moon_distance_i);
-        luminance_i *= GetVisibilityFromMoonShadow(acos(clamp(dot(sun_direction, moon_direction_i), -1, 1)),
-            sun_angular_radius, moon_angular_radius_i);
+        luminance_i *= GetVisibilityFromMoonShadow(moon_position - position_i, moon_radius, sun_direction);
 #endif
         luminance_i *= solar_illuminance;
 #endif
@@ -284,7 +294,7 @@ vec3 ComputeScatteredLuminance(sampler2D transmittance_texture
     return luminance;
 }
 
-vec3 ComputeGroundLuminance(sampler2D transmittance_texture, vec3 position, vec3 sun_direction
+vec3 ComputeGroundLuminance(sampler2D transmittance_texture, vec3 earth_center, vec3 position, vec3 sun_direction
 #ifndef MULTISCATTERING_COMPUTE_PROGRAM
     , vec3 ground_albedo
 #endif
@@ -296,7 +306,7 @@ vec3 ComputeGroundLuminance(sampler2D transmittance_texture, vec3 position, vec3
     solar_illuminance_at_ground *= solar_illuminance;
 #endif
     vec3 normal = normalize(position - earth_center);
-    return solar_illuminance_at_ground * max(dot(normal, sun_direction), 0) * ground_albedo / PI;
+    return solar_illuminance_at_ground * max(dot(normal, sun_direction), 0) * ground_albedo * INV_PI;
 }
 
 
@@ -358,6 +368,7 @@ void main() {
     float altitude, mu_s;
     GetAltitudeMuSFromMultiscatteringTextureIndex(ivec2(gl_GlobalInvocationID.xy), 
         imageSize(multiscattering_image), altitude, mu_s);
+    vec3 earth_center = vec3(0, -bottom_radius, 0);
     vec3 start_position = vec3(0, altitude, 0);
     vec3 sun_direction = vec3(0, mu_s, sqrt(1 - mu_s * mu_s));
     int local_index = int(gl_GlobalInvocationID.z);
@@ -372,13 +383,13 @@ void main() {
 
     vec3 transmittance;
     vec3 L_f;
-    vec3 luminance = ComputeScatteredLuminance(transmittance_texture, start_position,
+    vec3 luminance = ComputeScatteredLuminance(transmittance_texture, earth_center, start_position,
         view_direction, sun_direction, marching_distance, multiscattering_steps, transmittance, L_f);
 
     if (intersect_bottom) {
         vec3 ground_position = start_position + view_direction * marching_distance;
         luminance += transmittance * ComputeGroundLuminance(
-            transmittance_texture, ground_position, sun_direction);
+            transmittance_texture, earth_center, ground_position, sun_direction);
     }
     
     L_2nd_order_shared[local_index] = luminance;
@@ -428,5 +439,7 @@ void main() {
     imageStore(multiscattering_image, ivec2(gl_GlobalInvocationID.xy),
         vec4(multiscattering_contribution, 1.0));
 }
+
+#endif
 
 #endif

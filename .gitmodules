@@ -7,3 +7,9 @@
 [submodule "external/magic_enum"]
 	path = external/magic_enum
 	url = git@github.com:Neargye/magic_enum.git
+[submodule "external/cppreflection"]
+	path = external/cppreflection
+	url = git@github.com:c52e/cppreflection.git
+[submodule "rapidjson"]
+	path = external/rapidjson
+	url = git@github.com:Tencent/rapidjson.git

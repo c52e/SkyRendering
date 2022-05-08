@@ -1,16 +1,47 @@
 #pragma once
 
+#include <string>
+
 #include <glad/glad.h>
 
 class GLProgram {
 public:
+	GLProgram() = default;
 	GLProgram(const char* vertex_src, const char* fragment_src, GLuint external_fragment_shader = 0);
 	GLProgram(const char* compute_src, GLuint external_compute_shader = 0);
 	~GLProgram();
+	GLProgram(const GLProgram&) = delete;
+	GLProgram(GLProgram&& rhs) noexcept
+		: GLProgram() {
+		swap(rhs);
+	}
 
-	GLuint id() const { return id_; }
+	GLProgram& operator=(GLProgram rhs) noexcept {
+		swap(rhs);
+		return *this;
+	}
+
+	GLuint id() const noexcept { return id_; }
+
+	void swap(GLProgram& rhs) noexcept {
+		using std::swap;
+		swap(id_, rhs.id_);
+	}
 
 private:
 	GLuint id_ = 0;
 };
 
+constexpr auto kCommonVertexSrc = R"(
+#version 460
+layout(location = 0) in vec2 aPos;
+out vec2 vTexCoord;
+void main() {
+	vTexCoord = aPos * 0.5 + 0.5;
+	gl_Position = vec4(aPos, 0.0, 1.0);
+}
+)";
+
+std::string Replace(std::string src, const std::string& from, const std::string& to);
+
+std::string ReadWithPreprocessor(const char* filepath);
