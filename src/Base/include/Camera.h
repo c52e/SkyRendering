@@ -27,6 +27,10 @@ public:
 
 	glm::vec3 right() const { return right_; }
 
+	glm::vec3 up() const { return up_; }
+
+	float aspect() const { return aspect_; }
+
 	void set_aspect(float aspect) { aspect_ = aspect; }
 
 	void Rotate(float dPitch, float dYaw);

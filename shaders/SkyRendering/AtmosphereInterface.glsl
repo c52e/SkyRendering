@@ -1,5 +1,5 @@
-#ifndef __ATMOSPHERE_INTERFACE_GLSL
-#define __ATMOSPHERE_INTERFACE_GLSL
+#ifndef _ATMOSPHERE_INTERFACE_GLSL
+#define _ATMOSPHERE_INTERFACE_GLSL
 
 #include "Atmosphere.glsl"
 

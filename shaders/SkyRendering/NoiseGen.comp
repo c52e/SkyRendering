@@ -2,6 +2,13 @@ layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = 
 
 #include "../Base/Noise.glsl"
 
+struct NoiseCreateInfo {
+    uint seed;
+    uint base_frequency;
+    float remap_min;
+    float remap_max;
+};
+
 float RemapTo01(float x, float x0, float x1) {
     return clamp((x - x0) / (x1 - x0), 0, 1);
 }
@@ -10,14 +17,14 @@ float RemapFrom01(float x, float y0, float y1) {
     return clamp(y0 + x * (y1 - y0), 0, 1);
 }
 
-float PerlinFBM(vec3 p, uint basef, uint seed, float remap_min, float remap_max) {
+float PerlinFBM(vec3 p, NoiseCreateInfo create_info) {
     float res = 0.0;
-    uint f = basef;
+    uint f = create_info.base_frequency;
     float a = 0.5;
     float sum_a = 0.0;
     for (uint c = 0; c < 8; ++c) {
-        float noise = PerlinNoise(p, f, seed) * 0.5 + 0.5;
-        res += RemapTo01(noise, remap_min, remap_max) * a;
+        float noise = PerlinNoise(p, f, create_info.seed) * 0.5 + 0.5;
+        res += RemapTo01(noise, create_info.remap_min, create_info.remap_max) * a;
         sum_a += a;
         f *= 2;
         a *= 0.5;
@@ -26,14 +33,14 @@ float PerlinFBM(vec3 p, uint basef, uint seed, float remap_min, float remap_max)
     return res;
 }
 
-float WorleyFBM(vec3 p, uint basef, uint seed, float remap_min, float remap_max) {
+float WorleyFBM(vec3 p, NoiseCreateInfo create_info) {
     float res = 0.0;
-    uint f = basef;
+    uint f = create_info.base_frequency;
     float a = 0.5;
     float sum_a = 0.0;
     for (uint c = 0; c < 8; ++c) {
-        float noise = WorleyNoise(p, f, seed);
-        res += RemapTo01(noise, remap_min, remap_max) * a;
+        float noise = WorleyNoise(p, f, create_info.seed);
+        res += RemapTo01(noise, create_info.remap_min, create_info.remap_max) * a;
         sum_a += a;
         f *= 2;
         a *= 0.5;
@@ -43,37 +50,56 @@ float WorleyFBM(vec3 p, uint basef, uint seed, float remap_min, float remap_max)
 }
 
 #ifdef DISPLACEMENT_GEN
+
+layout(std140, binding = 1) uniform BufferData {
+	NoiseCreateInfo uPerlin;
+};
+
 layout(binding = 0, rgba8) uniform image2D result;
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     vec2 coord = (vec2(pos) + 0.5) / vec2(imageSize(result));
     vec4 res = vec4(0);
     for (int i = 0; i < 4; ++i) {
-        res[i] = PerlinFBM(vec3(coord, 0.0), 6, uint(i), 0.25, 0.75);
+        NoiseCreateInfo create_info = uPerlin;
+        create_info.seed += uint(i);
+        res[i] = PerlinFBM(vec3(coord, 0.0), create_info);
     }
     imageStore(result, pos, res);
 }
 #endif
 
 #ifdef CLOUD_MAP_GEN
+
+layout(std140, binding = 1) uniform BufferData {
+	NoiseCreateInfo uDensity;
+    NoiseCreateInfo uHeight;
+};
+
 layout(binding = 0, rg8) uniform image2D result;
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     vec2 coord = (vec2(pos) + 0.5) / vec2(imageSize(result));
-    float density = PerlinFBM(vec3(coord, 0.0), 3, 0, 0.35, 0.75);
-    float height = WorleyFBM(vec3(coord, 0.0), 5, 0, 0.8, 0.4);
+    float density = PerlinFBM(vec3(coord, 0.0), uDensity);
+    float height = WorleyFBM(vec3(coord, 0.0), uHeight);
 
     imageStore(result, pos, vec4(density, height, 0, 0));
 }
 #endif
 
 #ifdef DETAIL_MAP_GEN
+
+layout(std140, binding = 1) uniform BufferData {
+	NoiseCreateInfo uPerlin;
+    NoiseCreateInfo uWorley;
+};
+
 layout(binding = 0, r8) uniform image3D result;
 void main() {
     ivec3 pos = ivec3(gl_GlobalInvocationID.xyz);
     vec3 coord = (vec3(pos) + 0.5) / vec3(imageSize(result));
-    float perlin = PerlinFBM(coord, 7, 0, 0.23, 1.0);
-    float worley = WorleyFBM(coord, 11, 0, 1.0, 0.0);
+    float perlin = PerlinFBM(coord, uPerlin);
+    float worley = WorleyFBM(coord, uWorley);
     float perlin_worley = RemapFrom01(perlin, worley, 1.0);
     imageStore(result, pos, vec4(perlin_worley));
 }

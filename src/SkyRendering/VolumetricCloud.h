@@ -11,6 +11,7 @@
 #include "Camera.h"
 #include "Serialization.h"
 #include "IVolumetricCloudMaterial.h"
+#include "Samplers.h"
 
 class VolumetricCloud : public ISerializable {
 public:
@@ -26,6 +27,8 @@ public:
     float sun_illuminance_scale_ = 1.0f;
     float shadow_steps_ = 5.0f;
     float shadow_distance_ = 2.0f;
+    float shadow_map_max_distance = 20.0f;
+    float shadow_froxel_max_distance = 20.0f;
 
     FIELD_DECLARATION_BEGIN(ISerializable)
         FIELD_DECLARE(material)
@@ -39,14 +42,35 @@ public:
         FIELD_DECLARE(sun_illuminance_scale_)
         FIELD_DECLARE(shadow_steps_)
         FIELD_DECLARE(shadow_distance_)
+        FIELD_DECLARE(shadow_map_max_distance)
+        FIELD_DECLARE(shadow_froxel_max_distance)
     FIELD_DECLARATION_END()
 
     VolumetricCloud();
 
+    struct {
+        GLuint shadow_map;
+        GLuint sampler;
+        glm::mat4 light_vp_inv_model;
+    } GetShadowMap() const {
+        return { shadow_maps_[2].id(), shadow_map_sampler_.id(), light_vp_inv_model_ };
+    }
+
+    struct {
+        GLuint shadow_froxel;
+        GLuint sampler;
+        float inv_max_distance;
+    } GetShadowFroxel() const {
+        return { viewport_data_->shadow_froxel.id(), Samplers::GetLinearNoMipmapClampToEdge(), 1.0f / shadow_froxel_max_distance };
+    }
+
     void SetViewport(int width, int height);
 
-    void Render(GLuint hdr_texture, GLuint depth_texture, const Camera& camera
-        , const Earth& earth, const AtmosphereRenderer& atmosphere_render);
+    void Update(const Camera& camera, const Earth& earth, const AtmosphereRenderer& atmosphere_render);
+
+    void RenderShadow();
+
+    void Render(GLuint hdr_texture, GLuint depth_texture);
 
     void DrawGUI();
 
@@ -70,10 +94,19 @@ private:
         GLTexture render_texture_;
         GLTexture cloud_distance_texture_;
         GLTexture reconstruct_texture_[2];
+
+        GLTexture shadow_froxel;
     };
 
     glm::ivec2 viewport_{};
     std::unique_ptr<ViewportData> viewport_data_;
+
+    GLSampler shadow_map_sampler_;
+    GLTexture shadow_maps_[3]; // current raw, previous raw, current 
+
+    GLReloadableComputeProgram shadow_map_gen_program_;
+    GLReloadableComputeProgram shadow_map_blur_program_[2];
+    GLReloadableComputeProgram shadow_froxel_gen_program_;
 
     GLReloadableComputeProgram checkerboard_gen_program_;
     GLReloadableComputeProgram index_gen_program_;
@@ -88,4 +121,12 @@ private:
     glm::mat4 mvp_ = glm::identity<glm::mat4>();
     glm::dvec2 offset_from_first_{ 0, 0 };
     int frame_id_ = 0;
+    glm::mat4 model_ = glm::identity<glm::mat4>();
+    glm::mat4 light_vp_ = glm::identity<glm::mat4>();
+
+    glm::mat4 light_vp_inv_model_ = glm::identity<glm::mat4>();
+
+    GLuint atmosphere_transmittance_tex_ = 0;
+    GLuint aerial_perspective_luminance_tex_ = 0;
+    GLuint aerial_perspective_transmittance_tex_ = 0;
 };

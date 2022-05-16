@@ -8,25 +8,15 @@
 #include "Textures.h"
 #include "Samplers.h"
 #include "ScreenRectangle.h"
+#include "VolumetricCloud.h"
 
-constexpr GLuint kSkyViewLocalSizeX = 16;
-constexpr GLuint kSkyViewLocalSizeY = 2;
 constexpr GLsizei kSkyViewTextureWidth = 128;
 constexpr GLsizei kSkyViewTextureHeight = 128;
 constexpr GLenum kSkyViewTextureInternalFormat = GL_RGBA32F;
-constexpr GLuint kSkyViewProgramGlobalSizeX = kSkyViewTextureWidth / kSkyViewLocalSizeX;
-constexpr GLuint kSkyViewProgramGlobalSizeY = kSkyViewTextureHeight / kSkyViewLocalSizeY;
 
-constexpr GLuint kAerialPerspectiveLocalSizeX = 8;
-constexpr GLuint kAerialPerspectiveLocalSizeY = 4;
-constexpr GLuint kAerialPerspectiveLocalSizeZ = 1;
 constexpr GLsizei kAerialPerspectiveTextureWidth = 32;
 constexpr GLsizei kAerialPerspectiveTextureHeight = 32;
-constexpr GLsizei kAerialPerspectiveTextureDepth = 32;
 constexpr GLenum kAerialPerspectiveTextureInternalFormat = GL_RGBA32F;
-constexpr GLuint kAerialPerspectiveProgramGlobalSizeX = kAerialPerspectiveTextureWidth / kAerialPerspectiveLocalSizeX;
-constexpr GLuint kAerialPerspectiveProgramGlobalSizeY = kAerialPerspectiveTextureHeight / kAerialPerspectiveLocalSizeY;
-constexpr GLuint kAerialPerspectiveProgramGlobalSizeZ = kAerialPerspectiveTextureDepth / kAerialPerspectiveLocalSizeZ;
 
 struct AtmosphereRenderBufferData {
     glm::vec3 sun_direction;
@@ -47,9 +37,12 @@ struct AtmosphereRenderBufferData {
     glm::mat4 inv_view_projection;
     glm::mat4 light_view_projection;
 
-    glm::vec2 padding00;
+    float padding00;
+    float uInvShadowFroxelMaxDistance;
     float blocker_kernel_size_k;
     float pcss_size_k;
+
+    glm::mat4 uCloudShadowMapMat;
 };
 
 static void AssignBufferData(const AtmosphereRenderParameters& parameters, const Earth& earth, AtmosphereRenderBufferData& data) {
@@ -86,33 +79,35 @@ static void AssignBufferData(const AtmosphereRenderParameters& parameters, const
 }
 
 AtmosphereRenderer::AtmosphereRenderer(const AtmosphereRenderInitParameters& init_parameters)
-    : use_sky_view_lut_(init_parameters.use_sky_view_lut), use_aerial_perspective_lut_(init_parameters.use_aerial_perspective_lut) {
+    : use_sky_view_lut_(init_parameters.use_sky_view_lut), use_aerial_perspective_lut_(init_parameters.use_aerial_perspective_lut)
+    , aerial_perspective_lut_depth_(init_parameters.aerial_perspective_lut_depth){
     atmosphere_render_buffer_.Create();
     glNamedBufferStorage(atmosphere_render_buffer_.id(), sizeof(AtmosphereRenderBufferData), NULL, GL_DYNAMIC_STORAGE_BIT);
 
-    auto generate_shader_str = [&init_parameters] (const std::string& header, bool dither_sample_point_enable) {
+    auto generate_shader_header = [init_parameters] (const std::string& header, bool dither_sample_point_enable) {
         return "#version 460\n"
             + std::string(header)
             + "#define SKY_VIEW_LUT_SIZE ivec2(" + std::to_string(kSkyViewTextureWidth)
             + "," + std::to_string(kSkyViewTextureHeight) + ")\n"
             + "#define AERIAL_PERSPECTIVE_LUT_SIZE ivec3(" + std::to_string(kAerialPerspectiveTextureWidth)
             + "," + std::to_string(kAerialPerspectiveTextureHeight)
-            + "," + std::to_string(kAerialPerspectiveTextureDepth) + ")\n"
+            + "," + std::to_string(init_parameters.aerial_perspective_lut_depth) + ")\n"
             + "#define PCSS_ENABLE " + (init_parameters.pcss_enable ? "1\n" : "0\n")
             + "#define VOLUMETRIC_LIGHT_ENABLE " + (init_parameters.volumetric_light_enable ? "1\n" : "0\n")
             + "#define MOON_SHADOW_ENABLE " + (init_parameters.moon_shadow_enable ? "1\n" : "0\n")
             + "#define DITHER_SAMPLE_POINT_ENABLE " + (dither_sample_point_enable ? "1\n" : "0\n")
             + "#define USE_SKY_VIEW_LUT " + (init_parameters.use_sky_view_lut ? "1\n" : "0\n")
-            + "#define USE_AERIAL_PERSPECTIVE_LUT " + (init_parameters.use_aerial_perspective_lut ? "1\n" : "0\n")
-            + ReadWithPreprocessor("../shaders/SkyRendering/AtmosphereRenderer.glsl");
+            + "#define USE_AERIAL_PERSPECTIVE_LUT " + (init_parameters.use_aerial_perspective_lut ? "1\n" : "0\n");
     };
 
-    auto sky_view_compute_str = generate_shader_str(
-        "#define SKY_VIEW_COMPUTE_PROGRAM\n"
-        "#define LOCAL_SIZE_X " + std::to_string(kSkyViewLocalSizeX) + "\n"
-        "#define LOCAL_SIZE_Y " + std::to_string(kSkyViewLocalSizeY) + "\n",
-        init_parameters.sky_view_lut_dither_sample_point_enable);
-    sky_view_program_ = GLProgram(sky_view_compute_str.c_str());
+    sky_view_program_ = {
+        "../shaders/SkyRendering/AtmosphereRenderer.glsl",
+        {{8, 4}, {8, 8}, {16, 4}, {16, 8}, {16, 16}, {32, 8}, {32, 16}},
+        [generate_shader_header, dither = init_parameters.sky_view_lut_dither_sample_point_enable](const std::string& src) {
+            return generate_shader_header("#define SKY_VIEW_COMPUTE_PROGRAM\n", dither) + src;
+        },
+        "SKY_VIEW"
+    };
 
     sky_view_luminance_texture_.Create(GL_TEXTURE_2D);
     glTextureStorage2D(sky_view_luminance_texture_.id(), 1, kSkyViewTextureInternalFormat,
@@ -122,31 +117,40 @@ AtmosphereRenderer::AtmosphereRenderer(const AtmosphereRenderInitParameters& ini
     glTextureStorage2D(sky_view_transmittance_texture_.id(), 1, kSkyViewTextureInternalFormat,
         kSkyViewTextureWidth, kSkyViewTextureHeight);
 
-    auto aerial_perspective_compute_str = generate_shader_str(
-        "#define AERIAL_PERSPECTIVE_COMPUTE_PROGRAM\n"
-        "#define LOCAL_SIZE_X " + std::to_string(kAerialPerspectiveLocalSizeX) + "\n"
-        "#define LOCAL_SIZE_Y " + std::to_string(kAerialPerspectiveLocalSizeY) + "\n"
-        "#define LOCAL_SIZE_Z " + std::to_string(kAerialPerspectiveLocalSizeZ) + "\n",
-        init_parameters.aerial_perspective_lut_dither_sample_point_enable);
-    aerial_perspective_program_ = GLProgram(aerial_perspective_compute_str.c_str());
+    aerial_perspective_program_ = {
+        "../shaders/SkyRendering/AtmosphereRenderer.glsl",
+        {{8, 4, 1}, {8, 8, 1}, {4, 4, 2}, {4, 4, 4}, {8, 4, 2}, {8, 4, 4}},
+        [generate_shader_header, dither = init_parameters.aerial_perspective_lut_dither_sample_point_enable](const std::string& src) {
+            return generate_shader_header("#define AERIAL_PERSPECTIVE_COMPUTE_PROGRAM\n", dither) + src;
+        },
+        "AERIAL_PERSPECTIVE"
+    };
 
     aerial_perspective_luminance_texture_.Create(GL_TEXTURE_3D);
     glTextureStorage3D(aerial_perspective_luminance_texture_.id(), 1, kAerialPerspectiveTextureInternalFormat,
-        kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, kAerialPerspectiveTextureDepth);
+        kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, aerial_perspective_lut_depth_);
 
     aerial_perspective_transmittance_texture_.Create(GL_TEXTURE_3D);
     glTextureStorage3D(aerial_perspective_transmittance_texture_.id(), 1, kAerialPerspectiveTextureInternalFormat,
-        kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, kAerialPerspectiveTextureDepth);
+        kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, aerial_perspective_lut_depth_);
 
-    auto atmosphere_render_fragment_str = generate_shader_str(
-        "#define ATMOSPHERE_RENDER_FRAGMENT_SHADER\n" + ReadWithPreprocessor("../shaders/SkyRendering/Shadow.glsl") + "\n",
-        init_parameters.raymarching_dither_sample_point_enable);
-    render_program_ = GLProgram(kCommonVertexSrc, atmosphere_render_fragment_str.c_str());
+    render_program_ = [generate_shader_header, dither = init_parameters.raymarching_dither_sample_point_enable]() {
+        auto atmosphere_render_fragment_str = generate_shader_header(
+            "#define ATMOSPHERE_RENDER_FRAGMENT_SHADER\n", dither)
+            + ReadWithPreprocessor("../shaders/SkyRendering/AtmosphereRenderer.glsl");
+        return GLProgram(kCommonVertexSrc, atmosphere_render_fragment_str.c_str());
+    };
 }
 
-void AtmosphereRenderer::Render(const Earth& earth, const AtmosphereRenderParameters& parameters) {
+void AtmosphereRenderer::Render(const Earth& earth, const VolumetricCloud& volumetric_cloud, const AtmosphereRenderParameters& parameters) {
     AtmosphereRenderBufferData atmosphere_render_buffer_data_;
     AssignBufferData(parameters, earth, atmosphere_render_buffer_data_);
+
+    auto cloud_shadow_map = volumetric_cloud.GetShadowMap();
+    auto cloud_shadow_froxel = volumetric_cloud.GetShadowFroxel();
+    atmosphere_render_buffer_data_.uCloudShadowMapMat = cloud_shadow_map.light_vp_inv_model;
+    atmosphere_render_buffer_data_.uInvShadowFroxelMaxDistance = cloud_shadow_froxel.inv_max_distance;
+
     sun_direction_ = atmosphere_render_buffer_data_.sun_direction;
     aerial_perspective_lut_max_distance_ = atmosphere_render_buffer_data_.aerial_perspective_lut_max_distance;
 
@@ -166,7 +170,9 @@ void AtmosphereRenderer::Render(const Earth& earth, const AtmosphereRenderParame
                     sky_view_transmittance_texture_.id(),
                     aerial_perspective_luminance_texture_.id(),
                     aerial_perspective_transmittance_texture_.id(),
-                    parameters.shadow_map_texture });
+                    parameters.shadow_map_texture,
+                    cloud_shadow_map.shadow_map,
+                    cloud_shadow_froxel.shadow_froxel });
     GLBindSamplers({ Samplers::GetLinearNoMipmapClampToEdge(),
                     Samplers::GetLinearNoMipmapClampToEdge(),
                     0u,
@@ -180,13 +186,15 @@ void AtmosphereRenderer::Render(const Earth& earth, const AtmosphereRenderParame
                     Samplers::GetLinearNoMipmapClampToEdge(),
                     Samplers::GetLinearNoMipmapClampToEdge(),
                     Samplers::GetLinearNoMipmapClampToEdge(),
-                    Samplers::GetNearestClampToEdge(), });
+                    Samplers::GetNearestClampToEdge(),
+                    cloud_shadow_map.sampler,
+                    cloud_shadow_froxel.sampler, });
 
     if (use_sky_view_lut_) {
         PERF_MARKER("SkyViewLut")
         GLBindImageTextures({ sky_view_luminance_texture_.id(), sky_view_transmittance_texture_.id() });
         glUseProgram(sky_view_program_.id());
-        glDispatchCompute(kSkyViewProgramGlobalSizeX, kSkyViewProgramGlobalSizeY, 1);
+        sky_view_program_.Dispatch({kSkyViewTextureWidth, kSkyViewTextureHeight});
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
@@ -194,7 +202,7 @@ void AtmosphereRenderer::Render(const Earth& earth, const AtmosphereRenderParame
         PERF_MARKER("AerialPerspective")
         GLBindImageTextures({ aerial_perspective_luminance_texture_.id(), aerial_perspective_transmittance_texture_.id() });
         glUseProgram(aerial_perspective_program_.id());
-        glDispatchCompute(kAerialPerspectiveProgramGlobalSizeX, kAerialPerspectiveProgramGlobalSizeY, kAerialPerspectiveProgramGlobalSizeZ);
+        aerial_perspective_program_.Dispatch({ kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, aerial_perspective_lut_depth_ });
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
     {

@@ -1,0 +1,75 @@
+#include "VolumetricCloudCommon.glsl"
+#include "Common.glsl"
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+
+layout(binding = 0) uniform sampler2D pre_raw_cloud_shadow_map;
+layout(binding = 1) uniform sampler2D blue_noise;
+layout(binding = 0, rg32f) uniform image2D raw_shadow_map_image;
+
+// Should be defined in material shader
+float SampleSigmaT(vec3 pos, float height01);
+
+struct Intersect {
+    float t1;
+    float t2;
+};
+
+Intersect LineShellFirstIntersect(float r, float mu) {
+    Intersect res;
+    res.t1 = res.t2 = 0;
+
+    float bottom_radius = uEarthRadius + uBottomAltitude;
+    float top_radius = uEarthRadius + uTopAltitude;
+
+    float discriminant_top = r * r * (mu * mu - 1.0) + top_radius * top_radius;
+    if (discriminant_top > 0) {
+        float discriminant_bottom = r * r * (mu * mu - 1.0) + bottom_radius * bottom_radius;
+        float sqrt_discriminant_top = sqrt(discriminant_top);
+        float sqrt_discriminant_bottom = sqrt(discriminant_bottom);
+    
+        res.t1 = -r * mu - sqrt_discriminant_top;
+        res.t2 = -r * mu + (discriminant_bottom >= 0 ? -sqrt_discriminant_bottom : sqrt_discriminant_top);
+    }
+    return res;
+}
+
+void main() {
+    ivec2 image_size = imageSize(raw_shadow_map_image);
+    vec2 uv = (vec2(gl_GlobalInvocationID.xy) + 0.5) / image_size;
+    vec3 origin = ProjectiveMul(uInvLightVP, vec3(uv * 2.0 - 1.0, 0.0));
+    vec3 dir = -uSunDirection;
+    
+    vec3 up = vec3(origin.xy, origin.z + uEarthRadius);
+    float r = length(up);
+    up /= r;
+    float mu = dot(up, dir);
+    Intersect intersect = LineShellFirstIntersect(r, mu);
+    float dist = max(intersect.t2 - intersect.t1, 0);
+    dist = min(dist, 1.0 / cos(radians(85.0)) * (uTopAltitude - uBottomAltitude));
+
+    float optical_depth = 0.0;
+    if (dist > 0.0) {
+        float steps = mix(12.0, 6.0, abs(dir.z));
+        float step_size = dist / steps;
+        float noise = texelFetch(blue_noise, ivec2(gl_GlobalInvocationID.xy) & 0x3f, 0).x;
+        float t = intersect.t1 + step_size * fract(noise + uFrameID * 0.61803398875);
+        for (uint cnt = uint(steps); cnt != 0; cnt--, t += step_size) {
+            vec3 pos = origin + t * dir;
+            float height01 = CalHeight01(pos);
+            float sigma_t = SampleSigmaT(pos, height01);
+            optical_depth += sigma_t * step_size;
+        }
+    }
+    float transmittance = exp(-optical_depth);
+    float depth = mix(intersect.t1, intersect.t2, 0.5);
+    vec2 res = vec2(depth, transmittance);
+
+    vec2 pre_uv = ProjectiveMul(uShadowMapReprojectMat, vec3(uv * 2.0 - 1.0, 0.0)).xy * 0.5 + 0.5;
+    if (all(clamp(pre_uv, vec2(0.5) / image_size, (image_size - vec2(0.5)) / image_size) == pre_uv)) {
+        vec2 pre_res = texture(pre_raw_cloud_shadow_map, pre_uv).rg;
+        res = mix(pre_res, res, 0.2);
+    }
+    
+    imageStore(raw_shadow_map_image, ivec2(gl_GlobalInvocationID.xy), vec4(res, 0.0, 0.0));
+}

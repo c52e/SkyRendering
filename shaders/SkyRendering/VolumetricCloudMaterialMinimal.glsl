@@ -1,5 +1,3 @@
-#include "VolumetricCloudRender.comp"
-
 layout(std140, binding = 3) uniform VolumetricCloudMaterialBufferData {
 	vec3 padding;
 	float uDensity;

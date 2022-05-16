@@ -1,5 +1,7 @@
 #include "Atmosphere.glsl"
 #include "AtmosphereInterface.glsl"
+#include "Shadow.glsl"
+#include "VolumetricCloudShadowInterface.glsl"
 
 layout(binding = 0) uniform sampler2D transmittance_texture;
 layout(binding = 1) uniform sampler2D multiscattering_texture;
@@ -15,6 +17,8 @@ layout(binding = 10) uniform sampler2D sky_view_transmittance_texture;
 layout(binding = 11) uniform sampler3D aerial_perspective_luminance_texture;
 layout(binding = 12) uniform sampler3D aerial_perspective_transmittance_texture;
 layout(binding = 13) uniform sampler2D shadow_map_depth_sampler;
+layout(binding = 14) uniform sampler2D cloud_shadow_map;
+layout(binding = 15) uniform sampler3D cloud_shadow_froxel;
 
 layout(std140, binding = 1) uniform AtmosphereRenderBufferData{
     vec3 sun_direction;
@@ -35,9 +39,12 @@ layout(std140, binding = 1) uniform AtmosphereRenderBufferData{
     mat4 inv_view_projection;
     mat4 light_view_projection;
 
-    vec2 padding00;
+    float padding00;
+    float uInvShadowFroxelMaxDistance;
     float blocker_kernel_size_k;
     float pcss_size_k;
+
+    mat4 uCloudShadowMapMat;
 };
 
 vec3 ComputeRaymarchingStartPositionAndChangeDistance(vec3 view_direction, inout float marching_distance) {
@@ -193,21 +200,22 @@ void main() {
     vec3 view_direction;
     float marching_distance = GetMarchingDistanceFromAerialPerspectiveTextureIndex(
         ivec3(gl_GlobalInvocationID.xyz), camera_position, inv_view_projection, view_direction);
+
+    float r = camera_earth_center_distance;
+    float mu = dot(view_direction, up_direction);
+    bool intersect_bottom = RayIntersectsGround(r, mu);
+    float max_marching_distance = intersect_bottom ?
+#if 1
+        marching_distance  // Better when camera is near ground
+#else
+        DistanceToBottomAtmosphereBoundary(r, mu) // Better when camera is near space
+#endif
+        : DistanceToTopAtmosphereBoundary(r, mu);
+    vec3 start_position = ComputeRaymarchingStartPositionAndChangeDistance(view_direction, max_marching_distance);
+    marching_distance = min(marching_distance, max_marching_distance);
+
     vec3 transmittance = vec3(1);
     vec3 luminance = vec3(0);
-    vec3 start_position = camera_position;
-    bool in_space = camera_earth_center_distance > top_radius;
-    if (in_space) {
-        float r = camera_earth_center_distance;
-        float mu = dot(view_direction, up_direction);
-        float near_distance;
-        if (FromSpaceIntersectTopAtmosphereBoundary(r, mu, near_distance)) {
-            start_position += near_distance * view_direction;
-        }
-        else {
-            marching_distance = 0;
-        }
-    }
     if (marching_distance > 0) {
 #if DITHER_SAMPLE_POINT_ENABLE
         float start_i = texelFetch(blue_noise, ivec2(gl_GlobalInvocationID.xy) & 0x3f, 0).x;
@@ -286,10 +294,14 @@ vec3 GetStarLuminance(sampler2D star_luminance, vec3 view_direction) {
 
 float SampleVisibilityFromShadowMap(vec3 position) {
 #if PCSS_ENABLE
-    return PCSS(shadow_map_texture, shadow_map_depth_sampler, blocker_kernel_size_k, pcss_size_k, light_view_projection, position);
+    float visibility = PCSS(shadow_map_texture, shadow_map_depth_sampler, blocker_kernel_size_k, pcss_size_k, light_view_projection, position);
 #else
-    return GetVisibilityFromShadowMap(shadow_map_texture, light_view_projection, position);
+    float visibility = GetVisibilityFromShadowMap(shadow_map_texture, light_view_projection, position);
 #endif
+
+    vec3 light_ndc = ProjectiveMul(uCloudShadowMapMat, position);
+    visibility = min(visibility, SampleCloudShadowTransmittance(cloud_shadow_map, light_ndc));
+    return visibility;
 }
 
 void main() {
@@ -349,6 +361,7 @@ void main() {
                 sun_direction, marching_distance, raymarching_steps, transmittance);
 
     }
+    luminance *= SampleRayScatterVisibility(cloud_shadow_froxel, vTexCoord, marching_distance, uInvShadowFroxelMaxDistance);
 
     if (intersect_object) {
         vec3 visibility = transmittance;

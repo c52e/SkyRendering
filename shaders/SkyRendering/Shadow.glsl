@@ -1,4 +1,6 @@
 // games202 hw1
+#ifndef _SHADOW_GLSL
+#define _SHADOW_GLSL
 
 #include "Common.glsl"
 
@@ -95,3 +97,5 @@ float PCSS(sampler2DShadow shadowMap, sampler2D shadow_map_depth_sampler, float 
 
     return Filtering(shadowMap, coords, penumbraSize);
 }
+
+#endif

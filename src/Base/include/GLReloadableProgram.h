@@ -40,10 +40,10 @@ public:
 
 	GLReloadableComputeProgram() = default;
 
-	GLReloadableComputeProgram(std::string path, const std::vector<glm::ivec2>& localsizes, std::function<std::string()> header_loader)
-		: GLReloadableComputeProgram(std::move(path), ToVec3(localsizes), std::move(header_loader)) {}
+	GLReloadableComputeProgram(std::string path, const std::vector<glm::ivec2>& localsizes, std::function<std::string(const std::string&)> post_process, std::string tag = "")
+		: GLReloadableComputeProgram(std::move(path), ToVec3(localsizes), std::move(post_process), std::move(tag)) {}
 
-	GLReloadableComputeProgram(std::string path, std::vector<glm::ivec3> localsizes, std::function<std::string()> header_loader);
+	GLReloadableComputeProgram(std::string path, std::vector<glm::ivec3> localsizes, std::function<std::string(const std::string&)> post_process, std::string tag = "");
 
 	GLReloadableComputeProgram& operator=(GLReloadableComputeProgram&&) = default;
 
@@ -71,7 +71,8 @@ private:
 
 	struct Data {
 		std::string path;
-		std::function<std::string()> header_loader;
+		std::string display_text;
+		std::function<std::string(const std::string&)> post_process;
 		std::vector<GLReloadableProgram> programs;
 		std::vector<glm::ivec3> localsizes;
 		std::vector<std::string> localsizes_str;

@@ -13,10 +13,10 @@ VolumetricCloudMinimalMaterial::VolumetricCloudMinimalMaterial() {
 }
 
 std::string VolumetricCloudMinimalMaterial::ShaderPath() {
-	return "../shaders/SkyRendering/VolumetricCloudMaterialMinimal.comp";
+	return "../shaders/SkyRendering/VolumetricCloudMaterialMinimal.glsl";
 }
 
-void VolumetricCloudMinimalMaterial::Setup(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) {
+void VolumetricCloudMinimalMaterial::Bind() {
 	BufferData buffer;
 	buffer.uDensity = density_;
 

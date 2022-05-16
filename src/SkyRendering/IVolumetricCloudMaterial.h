@@ -8,13 +8,15 @@
 
 class IVolumetricCloudMaterial : public ISerializable {
 public:
-    static constexpr GLuint kMaterialTextureUnitBegin = 6;
+    static constexpr GLuint kMaterialTextureUnitBegin = 7;
 
     virtual ~IVolumetricCloudMaterial() = default;
 
     virtual std::string ShaderPath() = 0;
 
-    virtual void Setup(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) = 0;
+    virtual void Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) {}
+
+    virtual void Bind() = 0;
 
     virtual void DrawGUI() = 0;
 

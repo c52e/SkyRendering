@@ -62,7 +62,7 @@ void main() {
     vec3 view_dir = normalize(frag_pos - uCameraPos);
     float rendered_distance = texelFetch(cloud_distance_texture, pos >> 1, 0).x;
     vec3 cloud_pos = uCameraPos + view_dir * rendered_distance;
-    vec2 pre_ndc = ProjectiveMul(uPreMVP, cloud_pos + vec3(uFrameDelta, 0)).xy;
+    vec2 pre_ndc = ProjectiveMul(uReprojectMat, cloud_pos).xy;
     vec2 pre_uv = pre_ndc * 0.5 + 0.5;
     vec4 pre_frame = texture(preframe_reconstruct_texture, pre_uv);
     pre_frame = clamp(pre_frame, aabb_min, aabb_max);

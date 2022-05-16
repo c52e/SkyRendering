@@ -1,5 +1,6 @@
 #include "AtmosphereInterface.glsl"
 #include "VolumetricCloudCommon.glsl"
+#include "VolumetricCloudShadowInterface.glsl"
 
 layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
 
@@ -9,29 +10,24 @@ layout(binding = 2) uniform sampler2D transmittance_texture;
 layout(binding = 3) uniform sampler3D aerial_perspective_luminance_texture;
 layout(binding = 4) uniform sampler3D aerial_perspective_transmittance_texture;
 layout(binding = 5) uniform sampler2D blue_noise;
+layout(binding = 6) uniform sampler3D shadow_froxel;
 
 layout(binding = 0, rgba16f) uniform image2D render_image;
 layout(binding = 1, r32f) uniform image2D cloud_distance_image;
 
 layout(std140, binding = 2) uniform VolumetricCloudBufferData {
-    vec3 uSunDirection;
 	float uSunIlluminanceScale;
-	
-	float uBottomAltitude;
-	float uTopAltitude;
 	float uMaxRaymarchDistance;
 	float uMaxRaymarchSteps;
-
-    vec3 _cloud_padding;
     float uMaxVisibleDistance;
 
 	vec3 uEnvColorScale;
 	float uShadowSteps;
-
+    
+	float _cloud_padding;
+	float uInvShadowFroxelMaxDistance;
 	float uShadowDistance;
 	float uAerialPerspectiveLutMaxDistance;
-	float uFrameID;
-	float uEarthRadius;
 };
 
 struct Intersect {
@@ -88,11 +84,6 @@ struct RayMarchContext {
 float SunCosTheta(vec3 pos) {
     vec3 up = normalize(vec3(pos.xy, pos.z + uEarthRadius));
     return dot(up, uSunDirection);
-}
-
-float CalHeight01(vec3 pos) {
-    float altitude = length(vec3(pos.xy, pos.z + uEarthRadius)) - uEarthRadius;
-    return clamp((altitude - uBottomAltitude) / (uTopAltitude - uBottomAltitude), 0, 1);
 }
 
 void UpdateContext(inout RayMarchContext ctx, vec3 view_dir) {
@@ -232,6 +223,8 @@ void main() {
     
     vec3 atmosphere_transmittance;
     vec3 atmosphere_luminance = GetAerialPerspective(uv, average_t, r, mu, atmosphere_transmittance);
+    atmosphere_luminance *= SampleRayScatterVisibility(shadow_froxel, uv, average_t, uInvShadowFroxelMaxDistance);
+
     luminance = luminance * atmosphere_transmittance + atmosphere_luminance * (1 - ctx.transmittance);
     imageStore(render_image, pos, vec4(luminance, ctx.transmittance));
 }

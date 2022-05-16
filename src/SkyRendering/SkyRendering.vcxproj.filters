@@ -63,13 +63,25 @@
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudUpscale.comp">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterial0.comp">
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterial0.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialMinimal.comp">
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialMinimal.glsl">
       <Filter>shaders</Filter>
     </None>
     <None Include="..\..\shaders\SkyRendering\NoiseGen.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowMap.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowInterface.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowFroxel.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowMapBlur.comp">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

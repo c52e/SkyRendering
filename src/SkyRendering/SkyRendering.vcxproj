@@ -50,16 +50,20 @@
     <None Include="..\..\shaders\SkyRendering\AtmosphereInterface.glsl" />
     <None Include="..\..\shaders\SkyRendering\AtmosphereRenderer.glsl" />
     <None Include="..\..\shaders\SkyRendering\CheckerboardGen.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowFroxel.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowInterface.glsl" />
     <None Include="..\..\shaders\SkyRendering\Common.glsl" />
     <None Include="..\..\shaders\SkyRendering\EarthRender.frag" />
     <None Include="..\..\shaders\SkyRendering\NoiseGen.comp" />
     <None Include="..\..\shaders\SkyRendering\Shadow.glsl" />
-    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterial0.comp" />
-    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialMinimal.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterial0.glsl" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialMinimal.glsl" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudReconstruct.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudRender.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudCommon.glsl" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudIndexGen.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowMap.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowMapBlur.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudUpscale.comp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

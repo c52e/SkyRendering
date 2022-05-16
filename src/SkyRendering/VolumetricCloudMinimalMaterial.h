@@ -8,7 +8,7 @@ public:
 
     std::string ShaderPath() override;
 
-    void Setup(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) override;
+    void Bind() override;
 
     void DrawGUI() override;
 

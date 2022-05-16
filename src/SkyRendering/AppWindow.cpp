@@ -128,6 +128,7 @@ bool AppWindow::SaveConfig(const char* path) {
 
 void AppWindow::HandleDisplayEvent() {
     earth_.Update();
+    volumetric_cloud_.Update(camera_, earth_, *atmosphere_renderer_);
     moon_->set_model(earth_.moon_model());
     Render();
     ProcessInput();
@@ -152,6 +153,7 @@ void AppWindow::Render() {
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     RenderShadowMap(light_view_projection_matrix);
+    volumetric_cloud_.RenderShadow();
 
     Clear(*gbuffer_);
     auto [width, height] = GetWindowSize();
@@ -159,7 +161,7 @@ void AppWindow::Render() {
     RenderGBuffer(*gbuffer_, camera_.ViewProjection());
     RenderViewport(*gbuffer_, camera_.ViewProjection(), camera_.position(), light_view_projection_matrix);
     {
-        volumetric_cloud_.Render(hdrbuffer_->texture_id(), gbuffer_->depth_stencil(), camera_, earth_, *atmosphere_renderer_);
+        volumetric_cloud_.Render(hdrbuffer_->texture_id(), gbuffer_->depth_stencil());
     }
 
     hdrbuffer_->DoPostProcess(0, post_process_parameters_);
@@ -198,7 +200,7 @@ void AppWindow::RenderViewport(const GBuffer& gbuffer, const glm::mat4& vp, glm:
     atmosphere_render_parameters_.shadow_map_texture = shadow_map_->depth_texture();
 
     glBindFramebuffer(GL_FRAMEBUFFER, hdrbuffer_->id());
-    atmosphere_renderer_->Render(earth_, atmosphere_render_parameters_);
+    atmosphere_renderer_->Render(earth_, volumetric_cloud_, atmosphere_render_parameters_);
 }
 
 void AppWindow::ProcessInput() {
@@ -212,6 +214,7 @@ void AppWindow::ProcessInput() {
 
     float dForward = 0.0f;
     float dRight = 0.0f;
+    float dUp = 0.0f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         dForward += camera_speed_ * dt;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -220,7 +223,11 @@ void AppWindow::ProcessInput() {
         dRight += camera_speed_ * dt;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         dRight -= camera_speed_ * dt;
-    auto move_vector = camera_.front() * dForward + camera_.right() * dRight;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        dUp += camera_speed_ * dt;
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        dUp -= camera_speed_ * dt;
+    auto move_vector = camera_.front() * dForward + camera_.right() * dRight + kWorldUp * dUp;
     auto new_position = camera_.position() + move_vector;
     auto radius = earth_.parameters.bottom_radius;
     auto center = earth_.center();
@@ -286,7 +293,6 @@ void AppWindow::HandleDrawGuiEvent() {
 
     if (ImGui::Button("Reload Shader")) {
         try {
-            atmosphere_renderer_ = std::make_unique<AtmosphereRenderer>(atmosphere_render_init_parameters_);
             GLReloadableProgram::ReloadAll();
         }
         catch (std::exception& e) {
@@ -404,7 +410,8 @@ void AppWindow::HandleDrawGuiEvent() {
         ImGui::Checkbox("Use Aerial Perspective LUT", &atmosphere_render_init_parameters_.use_aerial_perspective_lut);
         ImGui::Checkbox("Aerial Perspective LUT Dither Sample Point Enable", &atmosphere_render_init_parameters_.aerial_perspective_lut_dither_sample_point_enable);
         SliderFloat("Aerial Perspective LUT Steps", &atmosphere_render_parameters_.aerial_perspective_lut_steps, 0, 100.0);
-        SliderFloat("Aerial Perspective LUT Max Distance", &atmosphere_render_parameters_.aerial_perspective_lut_max_distance, 0, 200.0);
+        SliderFloatLogarithmic("Aerial Perspective LUT Max Distance", &atmosphere_render_parameters_.aerial_perspective_lut_max_distance, 0, 7000.0, "%.0f");
+        ImGui::SliderInt("Aerial Perspective LUT Depth", &atmosphere_render_init_parameters_.aerial_perspective_lut_depth, 1, 512);
         ImGui::Separator();
 
         ImGui::Checkbox("Raymarching Dither Sample Point Enable", &atmosphere_render_init_parameters_.raymarching_dither_sample_point_enable);

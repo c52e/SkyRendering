@@ -1,5 +1,5 @@
-#ifndef __COMMON_GLSL
-#define __COMMON_GLSL
+#ifndef _COMMON_GLSL
+#define _COMMON_GLSL
 
 #define PI 3.1415926535897932384626433832795
 #define INV_PI (1.0 / PI)

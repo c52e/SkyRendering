@@ -1,0 +1,46 @@
+#define TAG_CONF
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+layout(binding = 0) uniform sampler2D in_texture;
+layout(binding = 0, rg32f) uniform image2D out_image;
+
+ivec2 kImageSizeMinus1 = textureSize(in_texture, 0) - 1;
+
+#define KERNEL_HALF_WIDTH 5
+const float weight[KERNEL_HALF_WIDTH] = { 0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216 };
+
+#if defined(VOLUMETRIC_CLOUD_SHADOW_MAP_BLUR_PASS0)
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec2 res = texelFetch(in_texture, pos, 0).rg * weight[0];
+    for (int i = 1; i < KERNEL_HALF_WIDTH; ++i) {
+        ivec2 index1 = pos;
+        index1.x = max(index1.x - i, 0);
+        res += texelFetch(in_texture, index1, 0).rg * weight[i];
+        ivec2 index2 = pos;
+        index2.x = min(index2.x + i, kImageSizeMinus1.x);
+        res += texelFetch(in_texture, index2, 0).rg * weight[i];
+    }
+    imageStore(out_image, pos, vec4(res, 0.0, 0.0));
+}
+
+#elif defined(VOLUMETRIC_CLOUD_SHADOW_MAP_BLUR_PASS1)
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec2 res = texelFetch(in_texture, pos, 0).rg * weight[0];
+    for (int i = 1; i < KERNEL_HALF_WIDTH; ++i) {
+        ivec2 index1 = pos;
+        index1.y = max(index1.y - i, 0);
+        res += texelFetch(in_texture, index1, 0).rg * weight[i];
+        ivec2 index2 = pos;
+        index2.y = min(index2.y + i, kImageSizeMinus1.y);
+        res += texelFetch(in_texture, index2, 0).rg * weight[i];
+    }
+    imageStore(out_image, pos, vec4(res, 0.0, 0.0));
+}
+
+#else
+error
+#endif

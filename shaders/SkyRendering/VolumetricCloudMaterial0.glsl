@@ -1,5 +1,3 @@
-#include "VolumetricCloudRender.comp"
-
 layout(binding = MATERIAL_TEXTURE_UNIT_BEGIN + 0) uniform sampler2D cloud_map;
 layout(binding = MATERIAL_TEXTURE_UNIT_BEGIN + 1) uniform sampler3D detail_texture;
 layout(binding = MATERIAL_TEXTURE_UNIT_BEGIN + 2) uniform sampler2D displacement_texture;

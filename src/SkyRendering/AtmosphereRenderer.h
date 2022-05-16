@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 
 #include "gl.hpp"
-#include "GLProgram.h"
+#include "GLReloadableProgram.h"
 #include "Earth.h"
 #include "PerformanceMarker.h"
 #include "Serialization.h"
@@ -49,6 +49,7 @@ struct AtmosphereRenderInitParameters : public ISerializable {
     bool sky_view_lut_dither_sample_point_enable = false;
     bool use_aerial_perspective_lut = false;
     bool aerial_perspective_lut_dither_sample_point_enable = false;
+    GLsizei aerial_perspective_lut_depth = 32;
 
     FIELD_DECLARATION_BEGIN(ISerializable)
         FIELD_DECLARE(pcss_enable)
@@ -59,6 +60,7 @@ struct AtmosphereRenderInitParameters : public ISerializable {
         FIELD_DECLARE(sky_view_lut_dither_sample_point_enable)
         FIELD_DECLARE(use_aerial_perspective_lut)
         FIELD_DECLARE(aerial_perspective_lut_dither_sample_point_enable)
+        FIELD_DECLARE(aerial_perspective_lut_depth)
     FIELD_DECLARATION_END()
 };
 
@@ -70,18 +72,21 @@ inline bool operator==(const AtmosphereRenderInitParameters& lhs, const Atmosphe
         && lhs.use_sky_view_lut == rhs.use_sky_view_lut
         && lhs.sky_view_lut_dither_sample_point_enable == rhs.sky_view_lut_dither_sample_point_enable
         && lhs.use_aerial_perspective_lut == rhs.use_aerial_perspective_lut
-        && lhs.aerial_perspective_lut_dither_sample_point_enable == rhs.aerial_perspective_lut_dither_sample_point_enable;
+        && lhs.aerial_perspective_lut_dither_sample_point_enable == rhs.aerial_perspective_lut_dither_sample_point_enable
+        && lhs.aerial_perspective_lut_depth == rhs.aerial_perspective_lut_depth;
 }
 
 inline bool operator!=(const AtmosphereRenderInitParameters& lhs, const AtmosphereRenderInitParameters& rhs) {
     return !(lhs == rhs);
 }
 
+class VolumetricCloud;
+
 class AtmosphereRenderer {
 public:
     AtmosphereRenderer(const AtmosphereRenderInitParameters& init_parameters);
 
-    void Render(const Earth& earth, const AtmosphereRenderParameters& parameters);
+    void Render(const Earth& earth, const VolumetricCloud& volumetric_cloud, const AtmosphereRenderParameters& parameters);
 
     glm::vec3 sun_direction() const {
         return sun_direction_;
@@ -103,6 +108,7 @@ private:
 
     bool use_sky_view_lut_;
     bool use_aerial_perspective_lut_;
+    GLsizei aerial_perspective_lut_depth_;
 
     GLBuffer atmosphere_render_buffer_;
 
@@ -111,7 +117,7 @@ private:
     GLTexture aerial_perspective_luminance_texture_;
     GLTexture aerial_perspective_transmittance_texture_;
 
-    GLProgram sky_view_program_;
-    GLProgram aerial_perspective_program_;
-    GLProgram render_program_;
+    GLReloadableComputeProgram sky_view_program_;
+    GLReloadableComputeProgram aerial_perspective_program_;
+    GLReloadableProgram render_program_;
 };
