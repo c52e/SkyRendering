@@ -118,10 +118,10 @@ vec3 GetSunVisibility(sampler2D transmittance_texture, float r, float mu_s) {
 
 vec3 GetExtinction(float altitude) {
     vec3 rayleigh_extinction = rayleigh_scattering *
-        exp(-altitude * inv_rayleigh_exponential_distribution);
+        clamp(exp(-altitude * inv_rayleigh_exponential_distribution), 0, 1);
 
     vec3 mie_extinction = (mie_scattering + mie_absorption) *
-        exp(-altitude * inv_mie_exponential_distribution);
+        clamp(exp(-altitude * inv_mie_exponential_distribution), 0, 1);
 
     vec3 ozone_extinction = ozone_absorption *
         max(0, altitude < ozone_center_altitude ?
@@ -154,8 +154,8 @@ float MiePhaseFunction(float g, float cos_theta) {
 }
 
 void GetScattering(float altitude, out vec3 rayleigh, out vec3 mie) {
-    rayleigh = rayleigh_scattering * exp(-altitude * inv_rayleigh_exponential_distribution);
-    mie = mie_scattering * exp(-altitude * inv_mie_exponential_distribution);
+    rayleigh = rayleigh_scattering * clamp(exp(-altitude * inv_rayleigh_exponential_distribution), 0, 1);
+    mie = mie_scattering * clamp(exp(-altitude * inv_mie_exponential_distribution), 0, 1);
 }
 
 void GetAltitudeMuSFromMultiscatteringTextureIndex(ivec2 index, ivec2 size, out float altitude, out float mu_s) {

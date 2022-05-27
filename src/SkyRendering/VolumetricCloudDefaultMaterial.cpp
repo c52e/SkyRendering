@@ -6,18 +6,28 @@
 #include "Samplers.h"
 #include "ImGuiExt.h"
 
-struct VolumetricCloudDefaultMaterial::BufferData {
+struct SampleInfo {
+	glm::vec2 bias;
+	float frequency;
+	float k_lod;
+};
+
+struct VolumetricCloudDefaultMaterialCommonBufferData {
 	SampleInfo uCloudMapSampleInfo;
 	SampleInfo uDetailSampleInfo;
 	SampleInfo uDisplacementSampleInfo;
-	glm::vec2 uDetailParam;
+	glm::vec2 padding0;
 	float uLodBias;
 	float uDensity;
-	glm::vec3 padding0;
-	float uDisplacementScale;
 };
 
-VolumetricCloudDefaultMaterial::VolumetricCloudDefaultMaterial() {
+static float CalKLod(const TextureWithInfo& tex, glm::vec2 viewport, const Camera& camera) {
+	auto max_width = static_cast<float>(glm::max(tex.x, glm::max(tex.y, tex.z)));
+	auto tan_half_fovy = glm::tan(camera.fovy * 0.5f);
+	return max_width * tan_half_fovy / (tex.repeat_size * static_cast<float>(glm::min(viewport.x, viewport.y)));
+}
+
+VolumetricCloudDefaultMaterialCommon::VolumetricCloudDefaultMaterialCommon() {
 	{
 		constexpr int w = 512;
 		cloud_map_.texture.x = cloud_map_.texture.y = w;
@@ -62,24 +72,18 @@ VolumetricCloudDefaultMaterial::VolumetricCloudDefaultMaterial() {
 	}
 
 	buffer_.Create();
-	glNamedBufferStorage(buffer_.id(), sizeof(BufferData), NULL, GL_DYNAMIC_STORAGE_BIT);
+	glNamedBufferStorage(buffer_.id(), sizeof(VolumetricCloudDefaultMaterialCommonBufferData), NULL, GL_DYNAMIC_STORAGE_BIT);
 }
 
-std::string VolumetricCloudDefaultMaterial::ShaderPath() {
-	return "../shaders/SkyRendering/VolumetricCloudMaterial0.glsl";
-}
-
-void VolumetricCloudDefaultMaterial::Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) {
+void VolumetricCloudDefaultMaterialCommon::Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) {
 	cloud_map_.GenerateIfParameterChanged();
 	detail_.GenerateIfParameterChanged();
 	displacement_.GenerateIfParameterChanged();
 
 
-	BufferData buffer;
+	VolumetricCloudDefaultMaterialCommonBufferData buffer;
 	buffer.uLodBias = lod_bias_;
 	buffer.uDensity = density_;
-	buffer.uDetailParam = detail_param_;
-	buffer.uDisplacementScale = displacement_scale_;
 
 	auto gen_sample_info = [&viewport, &camera](const TextureWithInfo& tex, SampleInfo& info, glm::dvec2 offset) {
 		info.frequency = 1.0f / tex.repeat_size;
@@ -96,22 +100,22 @@ void VolumetricCloudDefaultMaterial::Update(glm::vec2 viewport, const Camera& ca
 	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
 }
 
-void VolumetricCloudDefaultMaterial::Bind() {
+void VolumetricCloudDefaultMaterialCommon::Bind() {
 	glBindBufferBase(GL_UNIFORM_BUFFER, 3, buffer_.id());
 
 	GLBindTextures({ 
 		cloud_map_.texture.id(),
 		detail_.texture.id(),
 		displacement_.texture.id(),
-		}, kMaterialTextureUnitBegin);
+		}, IVolumetricCloudMaterial::kMaterialTextureUnitBegin);
 	GLBindSamplers({ 
 		Samplers::Get(Samplers::Wrap::REPEAT, Samplers::Mag::LINEAR, minfilter2d_),
 		Samplers::Get(Samplers::Wrap::REPEAT, Samplers::Mag::LINEAR, minfilter3d_),
 		Samplers::Get(Samplers::Wrap::REPEAT, Samplers::Mag::LINEAR, minfilter_displacement_),
-		}, kMaterialTextureUnitBegin);
+		}, IVolumetricCloudMaterial::kMaterialTextureUnitBegin);
 }
 
-void VolumetricCloudDefaultMaterial::DrawGUI() {
+void VolumetricCloudDefaultMaterialCommon::DrawGUI() {
 	if (ImGui::TreeNode("Cloud Map")) {
 		cloud_map_.buffer.DrawGUI();
 		ImGui::TreePop();
@@ -134,19 +138,16 @@ void VolumetricCloudDefaultMaterial::DrawGUI() {
 	ImGui::SliderFloat("Density", &density_, 0.0f, 50.0f);
 	ImGui::SliderFloat("Wind Speed", &wind_speed_, 0.0f, 1.0f);
 	ImGui::SliderFloat("Detail Wind Speed", &detail_wind_magnify_, 0.0f, 5.0f);
-	ImGui::SliderFloat("Detail Param X", &detail_param_.x, -1.0f, 1.0f);
-	ImGui::SliderFloat("Detail Param Y", &detail_param_.y, 0.0f, 1.0f);
-	ImGui::SliderFloat("Displacement Scale", &displacement_scale_, 0.0f, 5.0f);
 }
 
-void VolumetricCloudDefaultMaterial::NoiseCreateInfo::DrawGUI() {
+void NoiseCreateInfo::DrawGUI() {
 	ImGui::InputInt("Seed", &seed);
 	ImGui::SliderInt("Base Frequency", &base_frequency, 1, 16);
 	ImGui::SliderFloat("Remap Min", &remap_min, 0.0f, 1.0f);
 	ImGui::SliderFloat("Remap Max", &remap_max, 0.0f, 1.0f);
 }
 
-void VolumetricCloudDefaultMaterial::CloudMapBuffer::DrawGUI() {
+void CloudMapBuffer::DrawGUI() {
 	if (ImGui::TreeNode("Density")) {
 		uDensity.DrawGUI();
 		ImGui::TreePop();
@@ -157,7 +158,7 @@ void VolumetricCloudDefaultMaterial::CloudMapBuffer::DrawGUI() {
 	}
 }
 
-void VolumetricCloudDefaultMaterial::DetailBuffer::DrawGUI() {
+void DetailBuffer::DrawGUI() {
 	if (ImGui::TreeNode("Perlin")) {
 		uPerlin.DrawGUI();
 		ImGui::TreePop();
@@ -168,6 +169,94 @@ void VolumetricCloudDefaultMaterial::DetailBuffer::DrawGUI() {
 	}
 }
 
-void VolumetricCloudDefaultMaterial::DisplacementBuffer::DrawGUI() {
+void DisplacementBuffer::DrawGUI() {
 	uPerlin.DrawGUI();
+}
+
+struct VolumetricCloudDefaultMaterial0BufferData {
+	glm::vec2 uDetailParam;
+	float uDisplacementScale;
+	float padding1;
+};
+
+VolumetricCloudDefaultMaterial0::VolumetricCloudDefaultMaterial0() {
+	buffer_.Create();
+	glNamedBufferStorage(buffer_.id(), sizeof(VolumetricCloudDefaultMaterial0BufferData), NULL, GL_DYNAMIC_STORAGE_BIT);
+}
+
+std::string VolumetricCloudDefaultMaterial0::ShaderPath() {
+	return "../shaders/SkyRendering/VolumetricCloudDefaultMaterial0.glsl";
+}
+
+void VolumetricCloudDefaultMaterial0::Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) {
+	materail_common_.Update(viewport, camera, offset_from_first, additional_delta);
+
+	VolumetricCloudDefaultMaterial0BufferData buffer;
+	buffer.uDetailParam = detail_param_;
+	buffer.uDisplacementScale = displacement_scale_;
+	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
+}
+
+void VolumetricCloudDefaultMaterial0::Bind() {
+	materail_common_.Bind();
+	glBindBufferBase(GL_UNIFORM_BUFFER, 4, buffer_.id());
+}
+
+void VolumetricCloudDefaultMaterial0::DrawGUI() {
+	materail_common_.DrawGUI();
+
+	ImGui::SliderFloat("Detail Param X", &detail_param_.x, -1.0f, 1.0f);
+	ImGui::SliderFloat("Detail Param Y", &detail_param_.y, 0.0f, 1.0f);
+	ImGui::SliderFloat("Displacement Scale", &displacement_scale_, 0.0f, 1.0f);
+}
+
+std::string VolumetricCloudDefaultMaterial1::ShaderPath() {
+	return "../shaders/SkyRendering/VolumetricCloudDefaultMaterial1.glsl";
+}
+
+struct VolumetricCloudDefaultMaterial1BufferData{
+	float uBaseDensityThreshold;
+	float uBaseHeightHardness;
+	float uBaseEdgeHardness;
+	float uDetailBase;
+	float uDetailScale;
+	float uHeightCut;
+	float uEdgeCur;
+	float padding1;
+};
+
+VolumetricCloudDefaultMaterial1::VolumetricCloudDefaultMaterial1() {
+	buffer_.Create();
+	glNamedBufferStorage(buffer_.id(), sizeof(VolumetricCloudDefaultMaterial1BufferData), NULL, GL_DYNAMIC_STORAGE_BIT);
+}
+
+void VolumetricCloudDefaultMaterial1::Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) {
+	materail_common_.Update(viewport, camera, offset_from_first, additional_delta);
+
+	VolumetricCloudDefaultMaterial1BufferData buffer;
+	buffer.uBaseDensityThreshold = base_density_threshold_;
+	buffer.uBaseHeightHardness = base_height_hardness_;
+	buffer.uBaseEdgeHardness = base_edge_hardness_;
+	buffer.uDetailBase = detail_base_;
+	buffer.uDetailScale = detail_scale_;
+	buffer.uHeightCut = 1.0f - height_cut_;
+	buffer.uEdgeCur = edge_cut_;
+	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
+}
+
+void VolumetricCloudDefaultMaterial1::Bind() {
+	materail_common_.Bind();
+	glBindBufferBase(GL_UNIFORM_BUFFER, 4, buffer_.id());
+}
+
+void VolumetricCloudDefaultMaterial1::DrawGUI() {
+	materail_common_.DrawGUI();
+
+	ImGui::SliderFloat("Base Density Threshhold", &base_density_threshold_, 0.0f, 1.0f);
+	ImGui::SliderFloat("Base Height Hardness", &base_height_hardness_, 0.0f, 10.0f);
+	ImGui::SliderFloat("Base Edge Hardness", &base_edge_hardness_, 0.0f, 10.0f);
+	ImGui::SliderFloat("Detail Base", &detail_base_, 0.0f, 1.0f);
+	ImGui::SliderFloat("Detail Scale", &detail_scale_, 0.0f, 8.0f);
+	ImGui::SliderFloat("Height Cut", &height_cut_, 0.0f, 1.0f);
+	ImGui::SliderFloat("Edge Cut", &edge_cut_, 0.0f, 1.0f);
 }

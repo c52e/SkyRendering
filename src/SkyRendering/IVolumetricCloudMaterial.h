@@ -23,25 +23,6 @@ public:
 protected:
     FIELD_DECLARATION_BEGIN(ISerializable)
     FIELD_DECLARATION_END()
-
-    struct SampleInfo {
-        glm::vec2 bias;
-        float frequency;
-        float k_lod;
-    };
-
-    struct TextureWithInfo {
-        GLuint id() { return tex.id(); }
-
-        GLTexture tex;
-        float repeat_size = 20.0f;
-        int x = 1;
-        int y = 1;
-        int z = 1;
-        int channel = 1;
-    };
-
-    static float CalKLod(const TextureWithInfo& tex, glm::vec2 viewport, const Camera& camera);
 };
 
 HAS_SUBCLASS(IVolumetricCloudMaterial)

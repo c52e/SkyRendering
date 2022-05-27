@@ -49,7 +49,7 @@ struct VolumetricCloudBufferData {
 static const glm::ivec2 kShadowMapResolution{ 512, 512 };
 
 VolumetricCloud::VolumetricCloud() {
-	material = std::make_unique<VolumetricCloudDefaultMaterial>();
+	material = std::make_unique<VolumetricCloudDefaultMaterial0>();
 
 	common_buffer_.Create();
 	glNamedBufferStorage(common_buffer_.id(), sizeof(VolumetricCloudCommonBufferData), NULL, GL_DYNAMIC_STORAGE_BIT);
