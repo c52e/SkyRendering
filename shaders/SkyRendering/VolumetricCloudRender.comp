@@ -125,7 +125,6 @@ void RayMarchStep(inout RayMarchContext ctx) {
         return;
     float tr = exp(-ctx.step_size * sigma_t);
     vec2 sun_env = vec2(0);
-    sun_env.g = ctx.height01;
     float transmittance_to_sun = SampleShadow(ctx.pos);
 
     // https://advances.realtimerendering.com/s2021/jpatry_advances2021/index.html#/96/0/8
@@ -133,6 +132,7 @@ void RayMarchStep(inout RayMarchContext ctx) {
                       HenyeyGreenstein(ctx.cos_sun_view, 0.85),
                       exp(-0.3 * sigma_t) * transmittance_to_sun);
     sun_env.r = transmittance_to_sun * phase;
+    sun_env.g = ctx.height01 * (1 - exp(-0.1 * sigma_t) * transmittance_to_sun);
 
     sun_env = sun_env - sun_env * tr;
     ctx.sun_env += ctx.transmittance * sun_env;
@@ -188,15 +188,15 @@ void main() {
     ctx.cos_sun_view = dot(uSunDirection, view_dir);
     float dist = intersect[0].t2 - intersect[0].t1;
     dist = min(dist, uMaxRaymarchDistance);
-    float num_steps = max(uMaxRaymarchSteps * (dist / uMaxRaymarchDistance), 1.0);
-    ctx.step_size = dist / num_steps;
+    uint num_steps = uint(max(uMaxRaymarchSteps * (dist / uMaxRaymarchDistance), 1.0));
+    ctx.step_size = dist / float(num_steps);
     ctx.transmittance = 1.0;
     ctx.transmittance_sum = 0.0;
     ctx.weighted_t_sum = 0.0;
     ctx.sun_env = vec2(0.0);
     float noise = texelFetch(blue_noise, pos & 0x3f, 0).x;
     ctx.t = intersect[0].t1 + ctx.step_size * fract(noise + uFrameID * 0.61803398875);
-    for (uint cnt = uint(num_steps); cnt != 0; cnt--, ctx.t += ctx.step_size) {
+    for (uint cnt = num_steps; cnt != 0; cnt--, ctx.t += ctx.step_size) {
         UpdateContext(ctx, view_dir);
         RayMarchStep(ctx);
         if (ctx.transmittance < kMinTransmittance)
@@ -205,10 +205,10 @@ void main() {
     float dist1 = intersect[1].t2 - intersect[1].t1;
     if (dist1 > 0) {
         dist1 = min(dist1, uMaxRaymarchDistance);
-        float num_steps1 = max(uMaxRaymarchSteps * (dist1 / uMaxRaymarchDistance), 1.0);
-        ctx.step_size = dist1 / num_steps1;
+        uint num_steps1 = uint(max(uMaxRaymarchSteps * (dist1 / uMaxRaymarchDistance), 1.0));
+        ctx.step_size = dist1 / float(num_steps1);
         ctx.t = intersect[1].t1 + ctx.step_size * fract(noise + uFrameID * 0.61803398875);
-        for (uint cnt = uint(num_steps1); cnt != 0; cnt--, ctx.t += ctx.step_size) {
+        for (uint cnt = num_steps1; cnt != 0; cnt--, ctx.t += ctx.step_size) {
             UpdateContext(ctx, view_dir);
             RayMarchStep(ctx);
             if (ctx.transmittance < kMinTransmittance)
@@ -219,12 +219,20 @@ void main() {
     imageStore(cloud_distance_image, pos, vec4(average_t));
     vec3 average_pos = uCameraPos + view_dir * average_t;
     vec3 luminance = ctx.sun_env.r * uSunIlluminanceScale * GetSunVisibility(average_pos) * solar_illuminance
-                   + ctx.sun_env.g * clamp(SunCosTheta(average_pos), 0, 1) * uEnvColorScale;
+                   + ctx.sun_env.g * clamp(SunCosTheta(average_pos), 0.05, 1.0) * uEnvColorScale;
     
     vec3 atmosphere_transmittance;
     vec3 atmosphere_luminance = GetAerialPerspective(uv, average_t, r, mu, atmosphere_transmittance);
     atmosphere_luminance *= SampleRayScatterVisibility(shadow_froxel, uv, average_t, uInvShadowFroxelMaxDistance);
 
     luminance = luminance * atmosphere_transmittance + atmosphere_luminance * (1 - ctx.transmittance);
+
+#if 1
+    luminance /= max(1e-5, (1 - ctx.transmittance));
+    float fade = smoothstep(uMaxVisibleDistance * 0.75, uMaxVisibleDistance, intersect[0].t1);
+    ctx.transmittance = mix(ctx.transmittance, 1.0, fade);
+    luminance *= 1 - ctx.transmittance;
+#endif
+    
     imageStore(render_image, pos, vec4(luminance, ctx.transmittance));
 }

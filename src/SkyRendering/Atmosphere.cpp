@@ -109,7 +109,6 @@ void Atmosphere::UpdateLuts(const AtmosphereParameters& parameters) {
     {
         PERF_MARKER("Transmittance")
         glDispatchCompute(kTransmittanceProgramGlobalSizeX, kTransmittanceProgramGlobalSizeY, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
     {
         PERF_MARKER("Multiscattering")
@@ -118,6 +117,6 @@ void Atmosphere::UpdateLuts(const AtmosphereParameters& parameters) {
         GLBindSamplers({ Samplers::GetLinearNoMipmapClampToEdge() });
         glUseProgram(multiscattering_program_.id());
         glDispatchCompute(kMultiscatteringTextureWidth, kMultiscatteringTextureHeight, 1);
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 }

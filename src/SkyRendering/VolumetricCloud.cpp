@@ -212,7 +212,7 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	auto delta_local = glm::mat3(inv_model) * delta_world;
 
 	glm::vec2 additional_delta{ 0, 0 };
-	material->Update(viewport_, camera, offset_from_first_, additional_delta);
+	material->Update(viewport_, camera, offset_from_first_ + glm::dvec2(delta_local), additional_delta);
 	delta_local += glm::vec3(additional_delta, 0);
 	glm::mat4 delta_mat(1.0f);
 	delta_mat[3][0] = delta_local[0];
@@ -294,7 +294,7 @@ void VolumetricCloud::RenderShadow() {
 
 		glUseProgram(shadow_map_gen_program_.id());
 		shadow_map_gen_program_.Dispatch(kShadowMapResolution);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 	{
 		PERF_MARKER("VolumetricCloudShadowMapBlur");
@@ -303,14 +303,14 @@ void VolumetricCloud::RenderShadow() {
 		GLBindImageTextures({ shadow_maps_[1].id() });
 		glUseProgram(shadow_map_blur_program_[0].id());
 		shadow_map_blur_program_[0].Dispatch(kShadowMapResolution);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
 		GLBindTextures({ shadow_maps_[1].id() });
 		GLBindSamplers({ shadow_map_sampler_.id() });
 		GLBindImageTextures({ shadow_maps_[2].id() });
 		glUseProgram(shadow_map_blur_program_[1].id());
 		shadow_map_blur_program_[1].Dispatch(kShadowMapResolution);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 	{
 		PERF_MARKER("VolumetricCloudShadowFroxel");
@@ -320,7 +320,7 @@ void VolumetricCloud::RenderShadow() {
 
 		glUseProgram(shadow_froxel_gen_program_.id());
 		shadow_froxel_gen_program_.Dispatch(viewport_ / 12);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 }
 
@@ -334,7 +334,7 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 
 		glUseProgram(checkerboard_gen_program_.id());
 		checkerboard_gen_program_.Dispatch(viewport_ / 2);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 
 	material->Bind();
@@ -348,14 +348,14 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 
 		glUseProgram(index_gen_program_.id());
 		index_gen_program_.Dispatch(viewport_ / 4);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 
 	glBindBufferBase(GL_UNIFORM_BUFFER, 2, buffer_.id());
 
 	{
 		PERF_MARKER("Render");
-		GLBindTextures({ viewport_data_->checkerboard_depth_.id(),
+		GLBindTextures<1>({ //viewport_data_->checkerboard_depth_.id(),
 						viewport_data_->index_linear_depth_.id(),
 						atmosphere_transmittance_tex_,
 						aerial_perspective_luminance_tex_,
@@ -363,8 +363,8 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 						Textures::Instance().blue_noise(),
 						GetShadowFroxel().shadow_froxel });
 
-		GLBindSamplers({ 0u,
-						0u,
+		GLBindSamplers<1>({ //Samplers::GetNearestClampToEdge(),
+						Samplers::GetNearestClampToEdge(),
 						Samplers::GetLinearNoMipmapClampToEdge(),
 						Samplers::GetLinearNoMipmapClampToEdge(),
 						Samplers::GetLinearNoMipmapClampToEdge(),
@@ -376,7 +376,7 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 
 		glUseProgram(render_program_.id());
 		render_program_.Dispatch(viewport_ / 4);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 
 	{
@@ -386,16 +386,16 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 						viewport_data_->render_texture_.id(),
 						viewport_data_->cloud_distance_texture_.id(),
 						viewport_data_->reconstruct_texture_[1].id(), });
-		GLBindSamplers<2>({// 0u,
-						// 0u,
-						0u,
-						0u,
+		GLBindSamplers<2>({// Samplers::GetNearestClampToEdge(),
+						// Samplers::GetNearestClampToEdge(),
+						Samplers::GetNearestClampToEdge(),
+						Samplers::GetNearestClampToEdge(),
 						Samplers::GetLinearNoMipmapClampToEdge(), });
 		GLBindImageTextures({ viewport_data_->reconstruct_texture_[0].id() });
 
 		glUseProgram(reconstruct_program_.id());
 		reconstruct_program_.Dispatch(viewport_ / 2);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 	}
 
 	{
@@ -403,14 +403,14 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 		GLBindTextures<1>({// checkerboard_depth_.id(),
 						depth_texture,
 						viewport_data_->reconstruct_texture_[0].id() });
-		GLBindSamplers<1>({// 0u,
+		GLBindSamplers<1>({// Samplers::GetNearestClampToEdge(),
 						Samplers::GetNearestClampToEdge(),
-						0u });
+						Samplers::GetNearestClampToEdge() });
 		GLBindImageTextures({ hdr_texture });
 
 		glUseProgram(upscale_program_.id());
 		upscale_program_.Dispatch(viewport_);
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	}
 
 	using std::swap;

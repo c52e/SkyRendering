@@ -23,7 +23,7 @@ struct VolumetricCloudDefaultMaterialCommonBufferData {
 
 static float CalKLod(const TextureWithInfo& tex, glm::vec2 viewport, const Camera& camera) {
 	auto max_width = static_cast<float>(glm::max(tex.x, glm::max(tex.y, tex.z)));
-	auto tan_half_fovy = glm::tan(camera.fovy * 0.5f);
+	auto tan_half_fovy = glm::tan(glm::radians(camera.fovy) * 0.5f);
 	return max_width * tan_half_fovy / (tex.repeat_size * static_cast<float>(glm::min(viewport.x, viewport.y)));
 }
 
@@ -92,10 +92,11 @@ void VolumetricCloudDefaultMaterialCommon::Update(glm::vec2 viewport, const Came
 	};
 	const glm::vec2 kLocalWindDirection{ 1.0, 0.0 };
 	additional_delta = kLocalWindDirection * wind_speed_ * ImGui::GetIO().DeltaTime;
+	auto offset_from_first_cur = offset_from_first + glm::dvec2(additional_delta);
 	detail_offset_from_first_ += additional_delta * detail_wind_magnify_;
-	gen_sample_info(cloud_map_.texture, buffer.uCloudMapSampleInfo, offset_from_first);
-	gen_sample_info(detail_.texture, buffer.uDetailSampleInfo, offset_from_first + detail_offset_from_first_);
-	gen_sample_info(displacement_.texture, buffer.uDisplacementSampleInfo, offset_from_first);
+	gen_sample_info(cloud_map_.texture, buffer.uCloudMapSampleInfo, offset_from_first_cur);
+	gen_sample_info(detail_.texture, buffer.uDetailSampleInfo, offset_from_first_cur + detail_offset_from_first_);
+	gen_sample_info(displacement_.texture, buffer.uDisplacementSampleInfo, offset_from_first_cur);
 
 	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
 }
@@ -137,7 +138,7 @@ void VolumetricCloudDefaultMaterialCommon::DrawGUI() {
 	ImGui::SliderFloat("Displacement Repeat Size", &displacement_.texture.repeat_size, 0.1f, 100.0f);
 	ImGui::SliderFloat("Density", &density_, 0.0f, 50.0f);
 	ImGui::SliderFloat("Wind Speed", &wind_speed_, 0.0f, 1.0f);
-	ImGui::SliderFloat("Detail Wind Speed", &detail_wind_magnify_, 0.0f, 5.0f);
+	ImGui::SliderFloat("Detail Wind Magnify", &detail_wind_magnify_, -1.0f, 5.0f);
 }
 
 void NoiseCreateInfo::DrawGUI() {

@@ -8,6 +8,10 @@ layout(binding = 2) uniform sampler2D recontruct_texture;
 
 layout(binding = 0, rgba16f) uniform image2D hdr_image;
 
+vec4 texelFetchClamp(sampler2D s, ivec2 p, int lod) {
+    return texelFetch(s, clamp(p, ivec2(0), textureSize(s, lod)), lod);
+}
+
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     float depth = texelFetch(depth_texture, pos, 0).x;
@@ -22,7 +26,7 @@ void main() {
     bool is_edge = false;
     for (int i = 0; i < 4; ++i) {
         ivec2 half_pos = (pos + kOffsets[i]) >> 1;
-        reconstructed_neighbors[i] = texelFetch(recontruct_texture, half_pos, 0);
+        reconstructed_neighbors[i] = texelFetchClamp(recontruct_texture, half_pos, 0);
         float neighbor_depth = neighbor_depths[i];
         float neighbor_linear_depth = DepthToLinearDepth(neighbor_depth);
         float delta_linear_depth = abs(linear_depth - neighbor_linear_depth);

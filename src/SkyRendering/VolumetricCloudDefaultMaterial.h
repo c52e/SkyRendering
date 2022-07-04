@@ -43,7 +43,7 @@ public:
         GLBindImageTextures({ texture.id() });
         glUseProgram(program.id());
         program.Dispatch(glm::ivec3(texture.x, texture.y, texture.z));
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        // https://stackoverflow.com/questions/24693861/which-memory-barrier-does-glgeneratemipmap-require
         glGenerateTextureMipmap(texture.id());
         is_first_update_ = false;
     }

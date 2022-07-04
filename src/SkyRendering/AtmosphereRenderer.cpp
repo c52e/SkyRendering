@@ -195,7 +195,6 @@ void AtmosphereRenderer::Render(const Earth& earth, const VolumetricCloud& volum
         GLBindImageTextures({ sky_view_luminance_texture_.id(), sky_view_transmittance_texture_.id() });
         glUseProgram(sky_view_program_.id());
         sky_view_program_.Dispatch({kSkyViewTextureWidth, kSkyViewTextureHeight});
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
 
     if (true) { // For Volumetric Cloud
@@ -203,8 +202,8 @@ void AtmosphereRenderer::Render(const Earth& earth, const VolumetricCloud& volum
         GLBindImageTextures({ aerial_perspective_luminance_texture_.id(), aerial_perspective_transmittance_texture_.id() });
         glUseProgram(aerial_perspective_program_.id());
         aerial_perspective_program_.Dispatch({ kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, aerial_perspective_lut_depth_ });
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
     }
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     {
         PERF_MARKER("Render")
         glUseProgram(render_program_.id());

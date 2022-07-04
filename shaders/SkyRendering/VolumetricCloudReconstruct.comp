@@ -58,6 +58,7 @@ void main() {
         }
     }
     
+    vec4 rendered = texelFetch(render_texture, (pos >> 1), 0);
     vec3 frag_pos = ProjectiveMul(uInvMVP, vec3(uv, depth) * 2.0 - 1.0);
     vec3 view_dir = normalize(frag_pos - uCameraPos);
     float rendered_distance = texelFetch(cloud_distance_texture, pos >> 1, 0).x;
@@ -71,6 +72,6 @@ void main() {
     int rendered_index = int(texelFetch(index_linear_depth_texture, (pos >> 1), 0).r);
     bool is_rendered = all((pos & 1) == IndexToOffset(rendered_index));
     float rendered_weight = is_pre_out_of_screen ? 1.0 : is_rendered ? 0.2 : 0.0;
-    vec4 reconstructed = mix(pre_frame, rendered_nearest, rendered_weight);
+    vec4 reconstructed = mix(pre_frame, rendered, rendered_weight);
     imageStore(reconstruct_image, pos, reconstructed);
 }
