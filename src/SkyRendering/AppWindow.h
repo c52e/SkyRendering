@@ -57,6 +57,7 @@ private:
 
     bool draw_gui_enable_ = true;
     bool draw_debug_textures_enable_ = false;
+    bool draw_help_enable_ = true;
     bool full_screen_ = false;
     bool anisotropy_enable_ = true;
     bool vsync_enable_ = false;
@@ -72,6 +73,7 @@ private:
         FIELD_DECLARE(camera_speed_)
         FIELD_DECLARE(draw_gui_enable_)
         FIELD_DECLARE(draw_debug_textures_enable_)
+        FIELD_DECLARE(draw_help_enable_)
         FIELD_DECLARE(full_screen_)
         FIELD_DECLARE(anisotropy_enable_)
         FIELD_DECLARE(vsync_enable_)

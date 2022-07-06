@@ -377,6 +377,8 @@ void AppWindow::HandleDrawGuiEvent() {
     ImGui::Text("(Press space to reshow)");
     ImGui::SameLine();
     ImGui::Checkbox("Show Debug Textures", &draw_debug_textures_enable_);
+    ImGui::SameLine();
+    ImGui::Checkbox("Show Help", &draw_help_enable_);
 
     static bool previous_full_screen = full_screen_;
     static bool previous_anisotropy_enable = anisotropy_enable_;
@@ -511,6 +513,14 @@ void AppWindow::HandleDrawGuiEvent() {
     ImGui::Begin("Compute Program");
     GLReloadableComputeProgram::DrawGUIAll();
     ImGui::End();
+
+    if (draw_help_enable_) {
+        ImGui::Begin("Help");
+        ImGui::BulletText("The main window may be hidden by others. You can drag them away to show the main window and change parameters.");
+        ImGui::BulletText("WASDQE to move camera (You can change speed in main window).");
+        ImGui::BulletText("Hold right mouse button to rotate camera.");
+        ImGui::End();
+    }
 
     if (full_screen_ != previous_full_screen)
         SetFullScreen(full_screen_);
