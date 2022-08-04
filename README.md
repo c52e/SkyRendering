@@ -9,8 +9,6 @@
 
 ```
 git clone git@github.com:c52e/SkyRendering.git --single-branch
-cd SkyRendering
-git submodule update --init
 ```
 Open SkyRendering.sln.
 
