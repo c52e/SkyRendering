@@ -8,7 +8,7 @@
 ## Build
 
 ```
-git clone git@github.com:c52e/SkyRendering.git
+git clone git@github.com:c52e/SkyRendering.git --single-branch
 cd SkyRendering
 git submodule update --init
 ```
@@ -23,3 +23,5 @@ Build and run.
 ![screenshot1](https://c52e.github.io/SkyRendering/data/screenshot4.jpg)
 ![screenshot2](https://c52e.github.io/SkyRendering/data/screenshot2.jpg)
 ![screenshot3](https://c52e.github.io/SkyRendering/data/screenshot3.jpg)
+[video](https://c52e.github.io/SkyRendering/data/godray.mp4)
+![godray](https://github.com/c52e/SkyRendering/blob/gh-pages/data/godray.gif)
