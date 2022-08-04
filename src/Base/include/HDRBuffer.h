@@ -37,19 +37,25 @@ class HDRBuffer {
 public:
 	HDRBuffer(int width, int height);
 
-	GLuint id() const { return framebuffers_[0]; }
-	GLuint texture_id() const { return textures_[0]; }
-	void DoPostProcess(GLuint target_framebuffer_id, const PostProcessParameters& params);
+	GLuint hdr_texture() const { return hdr_textures_[0]; }
+	GLuint sdr_texture() const { return sdr_texture_.id(); }
+
+	void BindHdrFramebuffer() const;
+
+	void BindSdrFramebuffer() const;
+	
+	void DoPostProcessAndBindSdrFramebuffer(const PostProcessParameters& params);
 
 private:
-	GLFramebuffers<3> framebuffers_;
-	GLTextures<3> textures_;
+	GLFramebuffer framebuffer_;
+	GLTextures<3> hdr_textures_;
+	GLTexture sdr_texture_;
 
 	class PostProcessRenderer : public Singleton<PostProcessRenderer> {
 	public:
 		friend Singleton<PostProcessRenderer>;
 
-		void Render(GLuint target_framebuffer_id, const HDRBuffer& hdrbuffer, const PostProcessParameters& params);
+		void Render(const HDRBuffer& hdrbuffer, const PostProcessParameters& params);
 	private:
 		PostProcessRenderer();
 		GLReloadableProgram extract_;

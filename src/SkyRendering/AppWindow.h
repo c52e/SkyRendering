@@ -13,6 +13,7 @@
 #include "HDRBuffer.h"
 #include "MeshObject.h"
 #include "ShadowMap.h"
+#include "SMAA.h"
 #include "Serialization.h"
 
 class AppWindow : public GLWindow, public ISerializable {
@@ -40,6 +41,7 @@ private:
     std::unique_ptr<HDRBuffer> hdrbuffer_;
     std::unique_ptr<ShadowMap> shadow_map_;
     std::unique_ptr<AtmosphereRenderer> atmosphere_renderer_;
+    std::unique_ptr<SMAA> smaa_;
 
     Earth earth_;
     Camera camera_;
@@ -47,6 +49,7 @@ private:
     AtmosphereRenderInitParameters atmosphere_render_init_parameters_;
     AtmosphereRenderParameters atmosphere_render_parameters_;
     PostProcessParameters post_process_parameters_;
+    SMAAOption smaa_option_ = SMAAOption::SMAA_PRESET_HIGH;
 
     std::vector<std::unique_ptr<MeshObject>> mesh_objects_;
     MeshObject* moon_;
@@ -77,5 +80,6 @@ private:
         FIELD_DECLARE(full_screen_)
         FIELD_DECLARE(anisotropy_enable_)
         FIELD_DECLARE(vsync_enable_)
+        FIELD_DECLARE(smaa_option_)
     FIELD_DECLARATION_END()
 };

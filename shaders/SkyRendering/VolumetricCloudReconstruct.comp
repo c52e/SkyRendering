@@ -11,6 +11,20 @@ layout(binding = 4) uniform sampler2D preframe_reconstruct_texture;
 
 layout(binding = 0, rgba16f) uniform image2D reconstruct_image;
 
+#define USE_TONEMAPPING 1
+#define USE_VARIANCE 0
+
+void Reinhard(inout vec4 c) {
+#if USE_TONEMAPPING
+    c.rgb = c.rgb / (1.0 + c.rgb);
+#endif
+}
+void InverseReinhard(inout vec4 c) {
+#if USE_TONEMAPPING
+    c.rgb = c.rgb / (1.0 - c.rgb);
+#endif
+}
+
 void main() {
     // https://zhuanlan.zhihu.com/p/127435500
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
@@ -47,18 +61,35 @@ void main() {
     }
 
     vec4 rendered_nearest = texelFetch(render_texture, (pos >> 1) + kOffsets[nearest_i], 0);
+    Reinhard(rendered_nearest);
     vec4 aabb_min = rendered_nearest;
     vec4 aabb_max = rendered_nearest;
+    vec4 m1 = vec4(0.0);
+    vec4 m2 = vec4(0.0);
+    float N = 1e-6;
     for (int i = 0; i < 9; ++i) {
         vec4 rendered = texelFetch(render_texture, (pos >> 1) + kOffsets[i], 0);
-        if (delta_linear_depths[i] < rendered_linear_depths[i] * 0.1
+        Reinhard(rendered);
+        if (delta_linear_depths[i] < rendered_linear_depths[i] * 0.3
             || abs(rendered.a - rendered_nearest.a) < 0.2 /* Prevent flicker near the horizon when camera is above the cloud*/) {
             aabb_min = min(aabb_min, rendered);
             aabb_max = max(aabb_max, rendered);
+            m1 += rendered;
+            m2 += rendered * rendered;
+            N += 1.0;
         }
     }
-    
+    // https://developer.download.nvidia.cn/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+    vec4 mu = m1 / N;
+    vec4 sigma = sqrt(m2 / N - mu * mu);
+    const float gamma = 1.0;
+#if USE_VARIANCE
+    aabb_min = mu - gamma * sigma;
+    aabb_max = mu + gamma * sigma;
+#endif
+
     vec4 rendered = texelFetch(render_texture, (pos >> 1), 0);
+    Reinhard(rendered);
     vec3 frag_pos = ProjectiveMul(uInvMVP, vec3(uv, depth) * 2.0 - 1.0);
     vec3 view_dir = normalize(frag_pos - uCameraPos);
     float rendered_distance = texelFetch(cloud_distance_texture, pos >> 1, 0).x;
@@ -66,6 +97,7 @@ void main() {
     vec2 pre_ndc = ProjectiveMul(uReprojectMat, cloud_pos).xy;
     vec2 pre_uv = pre_ndc * 0.5 + 0.5;
     vec4 pre_frame = texture(preframe_reconstruct_texture, pre_uv);
+    Reinhard(pre_frame);
     pre_frame = clamp(pre_frame, aabb_min, aabb_max);
 
     bool is_pre_out_of_screen = max(abs(pre_ndc.x), abs(pre_ndc.y)) > 1.0;
@@ -73,5 +105,6 @@ void main() {
     bool is_rendered = all((pos & 1) == IndexToOffset(rendered_index));
     float rendered_weight = is_pre_out_of_screen ? 1.0 : is_rendered ? 0.2 : 0.0;
     vec4 reconstructed = mix(pre_frame, rendered, rendered_weight);
+    InverseReinhard(reconstructed);
     imageStore(reconstruct_image, pos, reconstructed);
 }

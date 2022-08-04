@@ -20,8 +20,8 @@ vec3 GetPerlinGradients(uint i, uint j, uint k, uint seed) {
     
 float PerlinNoise(vec3 p, uint freq, uint seed) {
     p *= float(freq);
-    uvec3 ijk0 = uvec3(floor(p)) % freq;
-    uvec3 ijk1 = uvec3(ceil(p)) % freq;
+    uvec3 ijk0 = uvec3(ivec3(floor(p))) % freq; // Casting a negative float to uint is undefined
+    uvec3 ijk1 = uvec3(ivec3(ceil(p))) % freq;
     uint i0 = ijk0.x;
     uint j0 = ijk0.y;
     uint k0 = ijk0.z;

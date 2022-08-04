@@ -11,7 +11,7 @@ layout(location = 0) out vec4 FragColor;
 layout(binding = 0) uniform sampler2D tex;
 layout(location = 0) uniform float scale;
 void main() {
-	FragColor = texture(tex, vec2(vTexCoord.x, 1.0 - vTexCoord.y)) * scale;
+	FragColor = texture(tex, vec2(vTexCoord.x, vTexCoord.y)) * scale;
 }
 )";
 

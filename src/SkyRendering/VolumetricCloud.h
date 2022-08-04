@@ -29,6 +29,8 @@ public:
     float shadow_distance_ = 2.0f;
     float shadow_map_max_distance = 20.0f;
     float shadow_froxel_max_distance = 20.0f;
+    float sun_multiscattering_sigma_scale = 0.3f;
+    float env_multiscattering_sigma_scale = 0.5f;
 
     FIELD_DECLARATION_BEGIN(ISerializable)
         FIELD_DECLARE(material)
@@ -44,6 +46,8 @@ public:
         FIELD_DECLARE(shadow_distance_)
         FIELD_DECLARE(shadow_map_max_distance)
         FIELD_DECLARE(shadow_froxel_max_distance)
+        FIELD_DECLARE(sun_multiscattering_sigma_scale)
+        FIELD_DECLARE(env_multiscattering_sigma_scale)
     FIELD_DECLARATION_END()
 
     VolumetricCloud();

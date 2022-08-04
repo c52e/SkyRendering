@@ -51,6 +51,7 @@
     "camera_speed_": 29.0,
     "draw_debug_textures_enable_": false,
     "draw_gui_enable_": true,
+    "draw_help_enable_": true,
     "earth_": {
         "moon_status": {
             "direction_phi": 293.7690124511719,
@@ -116,6 +117,7 @@
         "exposure": 10.0,
         "tone_mapping": "ACESToneMapping"
     },
+    "smaa_option_": "SMAA_PRESET_HIGH",
     "volumetric_cloud_": {
         "bottom_altitude_": 4.169000148773193,
         "env_color_": [
@@ -124,6 +126,7 @@
             1.0
         ],
         "env_color_scale_": 0.10000000149011612,
+        "env_multiscattering_sigma_scale": 0.5,
         "material": {
             "type": "class VolumetricCloudDefaultMaterial0",
             "data": {
@@ -174,6 +177,7 @@
         "shadow_map_max_distance": 51.6619987487793,
         "shadow_steps_": 5.0,
         "sun_illuminance_scale_": 1.0,
+        "sun_multiscattering_sigma_scale": 0.30000001192092896,
         "thickness_": 2.3259999752044678
     },
     "vsync_enable_": false

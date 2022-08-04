@@ -40,7 +40,9 @@ struct VolumetricCloudBufferData {
 	glm::vec3 uEnvColorScale;
 	float uShadowSteps;
 
-	float _cloud_padding;
+	glm::vec3 _cloud_padding;
+	float uSunMultiscatteringSigmaScale;
+	float uEnvMultiscatteringSigmaScale;
 	float uInvShadowFroxelMaxDistance;
 	float uShadowDistance;
 	float uAerialPerspectiveLutMaxDistance;
@@ -134,7 +136,7 @@ VolumetricCloud::ViewportData::ViewportData(glm::ivec2 viewport) {
 
 static glm::mat4 GetLightProjection(const Camera& camera, const glm::mat4& light_view, const glm::mat4& inv_model, float max_distance) {
 	auto far_plane_center = camera.position() + camera.front() * max_distance;
-	auto tanHalfFovy = glm::tan(camera.fovy / 2.0f);
+	auto tanHalfFovy = glm::tan(glm::radians(camera.fovy) * 0.5f);
 
 	auto up = tanHalfFovy * max_distance * camera.up();
 	auto right = camera.aspect() * tanHalfFovy * max_distance * camera.right();
@@ -263,6 +265,8 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	buffer.uShadowDistance = shadow_distance_;
 	buffer.uAerialPerspectiveLutMaxDistance = aerial_perspective.max_distance;
 	buffer.uInvShadowFroxelMaxDistance = GetShadowFroxel().inv_max_distance;
+	buffer.uSunMultiscatteringSigmaScale = sun_multiscattering_sigma_scale;
+	buffer.uEnvMultiscatteringSigmaScale = env_multiscattering_sigma_scale;
 
 	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
 
@@ -423,13 +427,15 @@ void VolumetricCloud::DrawGUI() {
 	ImGui::SliderFloat("Max Visible Distance", &max_visible_distance_, 0.0f, 1e5f, "%.0f", ImGuiSliderFlags_Logarithmic);
 	ImGui::SliderFloat("Max Raymarch Distance", &max_raymarch_distance_, 0.0f, 100.0f);
 	ImGui::SliderFloat("Max Raymarch Steps", &max_raymarch_steps_, 0.0f, 256.0f);
-	ImGui::ColorEdit3("Ambient Color", glm::value_ptr(env_color_));
-	ImGui::SliderFloat("Ambient Color Scale", &env_color_scale_, 0.0f, 1.0f);
+	ImGui::ColorEdit3("Environment Color", glm::value_ptr(env_color_));
+	ImGui::SliderFloat("Environment Color Scale", &env_color_scale_, 0.0f, 1.0f);
 	ImGui::SliderFloat("Sun Illuminance Scale", &sun_illuminance_scale_, 0.0f, 1.0f);
 	ImGui::SliderFloat("Shadow Steps", &shadow_steps_, 0.0f, 10.0f);
 	ImGui::SliderFloat("Shadow Distance", &shadow_distance_, 0.0f, 10.0f);
 	ImGui::SliderFloat("Shadow Map Max Distance", &shadow_map_max_distance, 0.0f, 100.0f);
 	ImGui::SliderFloat("Shadow Froxel Max Distance", &shadow_froxel_max_distance, 0.0f, 100.0f);
+	ImGui::SliderFloat("Sun Multiscattering Sigma Scale", &sun_multiscattering_sigma_scale, 0.0f, 5.0f);
+	ImGui::SliderFloat("Environment Multiscattering Sigma Scale", &env_multiscattering_sigma_scale, 0.0f, 5.0f);
 	auto b_material_tree_node = ImGui::TreeNode("Material");
 	if (ImGui::BeginPopupContextItem()) {
 		for (const auto& [name, factory] : reflection::SubclassInfo<IVolumetricCloudMaterial>::GetFactoryTable()) {

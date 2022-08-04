@@ -88,7 +88,7 @@ MeshVertices CreateSphere() {
 
             vertices.positions.push_back({ xPos, yPos, zPos });
             vertices.normals.push_back({ xPos, yPos, zPos });
-            vertices.uvs.push_back({ 1.0f - xSegment, ySegment });
+            vertices.uvs.push_back({ 1.0f - xSegment, 1.0f - ySegment });
         }
     }
 

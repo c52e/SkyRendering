@@ -21,7 +21,7 @@ class TextureVisualizer :public Singleton<TextureVisualizer> {
 public:
 	friend Singleton<TextureVisualizer>;
 
-	void VisualizeTexture(GLuint texture_id, float scale);
+	void VisualizeTexture(GLuint texture_id, float scale = 1.0f);
 
 private:
 	TextureVisualizer();

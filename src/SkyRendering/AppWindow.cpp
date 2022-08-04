@@ -13,6 +13,7 @@
 #include "Samplers.h"
 #include "ImGuiExt.h"
 #include "PerformanceMarker.h"
+#include "ScreenRectangle.h"
 
 AppWindow::AppWindow(const char* config_path, int width, int height)
     : GLWindow((std::string("SkyRendering (") + config_path + ")").c_str(), width, height, false) {
@@ -161,10 +162,13 @@ void AppWindow::Render() {
     RenderGBuffer(*gbuffer_, camera_.ViewProjection());
     RenderViewport(*gbuffer_, camera_.ViewProjection(), camera_.position(), light_view_projection_matrix);
     {
-        volumetric_cloud_.Render(hdrbuffer_->texture_id(), gbuffer_->depth_stencil());
+        volumetric_cloud_.Render(hdrbuffer_->hdr_texture(), gbuffer_->depth_stencil());
     }
 
-    hdrbuffer_->DoPostProcess(0, post_process_parameters_);
+    hdrbuffer_->DoPostProcessAndBindSdrFramebuffer(post_process_parameters_);
+    smaa_->DoSMAA(hdrbuffer_->sdr_texture());
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    TextureVisualizer::Instance().VisualizeTexture(smaa_->output_tex());
 }
 
 void AppWindow::RenderShadowMap(const glm::mat4& light_view_projection_matrix) {
@@ -199,7 +203,7 @@ void AppWindow::RenderViewport(const GBuffer& gbuffer, const glm::mat4& vp, glm:
     atmosphere_render_parameters_.orm = gbuffer.orm();
     atmosphere_render_parameters_.shadow_map_texture = shadow_map_->depth_texture();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, hdrbuffer_->id());
+    hdrbuffer_->BindHdrFramebuffer();
     atmosphere_renderer_->Render(earth_, volumetric_cloud_, atmosphere_render_parameters_);
 }
 
@@ -380,16 +384,15 @@ void AppWindow::HandleDrawGuiEvent() {
     ImGui::SameLine();
     ImGui::Checkbox("Show Help", &draw_help_enable_);
 
-    static bool previous_full_screen = full_screen_;
-    static bool previous_anisotropy_enable = anisotropy_enable_;
-    static bool previous_vsync_enable = vsync_enable_;
-    static auto previous_atmosphere_render_init_parameters = atmosphere_render_init_parameters_;
+    bool previous_full_screen = full_screen_;
+    bool previous_anisotropy_enable = anisotropy_enable_;
+    bool previous_vsync_enable = vsync_enable_;
+    auto previous_atmosphere_render_init_parameters = atmosphere_render_init_parameters_;
+    auto previous_smaa_option = smaa_option_;
 
     ImGui::Checkbox("Full Screen", &full_screen_);
     ImGui::SameLine();
     ImGui::Checkbox("VSync", &vsync_enable_);
-    ImGui::SameLine();
-    ImGui::Checkbox("Anisotropy Filtering", &anisotropy_enable_);
 
     if (ImGui::TreeNode("Render")) {
         ImGui::Checkbox("PCSS", &atmosphere_render_init_parameters_.pcss_enable);
@@ -397,6 +400,9 @@ void AppWindow::HandleDrawGuiEvent() {
         ImGui::Checkbox("Volumetric Light", &atmosphere_render_init_parameters_.volumetric_light_enable);
         ImGui::SameLine();
         ImGui::Checkbox("Moon Shadow", &atmosphere_render_init_parameters_.moon_shadow_enable);
+        ImGui::SameLine();
+        ImGui::Checkbox("Anisotropy Filtering", &anisotropy_enable_);
+        ImGui::EnumSelect("SMAA", &smaa_option_);
         ImGui::Separator();
 
         SliderFloat("Transmittance Steps", &earth_.parameters.transmittance_steps, 0, 100.0);
@@ -475,7 +481,7 @@ void AppWindow::HandleDrawGuiEvent() {
     }
 
     if (ImGui::TreeNode("Post Process")) {
-        EnumSelectable("Tone Mapping", &post_process_parameters_.tone_mapping);
+        ImGui::EnumSelect("Tone Mapping", &post_process_parameters_.tone_mapping);
         ImGui::Checkbox("Dither Color", &post_process_parameters_.dither_color_enable);
         SliderFloat("Bloom Min Luminance", &post_process_parameters_.bloom_min_luminance, 0, 2.0f);
         SliderFloat("Bloom Max Clamp Luminance", &post_process_parameters_.bloom_max_delta_luminance, 0, 50.0f);
@@ -524,19 +530,20 @@ void AppWindow::HandleDrawGuiEvent() {
 
     if (full_screen_ != previous_full_screen)
         SetFullScreen(full_screen_);
-    previous_full_screen = full_screen_;
 
     if (vsync_enable_ != previous_vsync_enable)
         glfwSwapInterval(vsync_enable_ ? 1 : 0);
-    previous_vsync_enable = vsync_enable_;
 
     if (anisotropy_enable_ != previous_anisotropy_enable)
         Samplers::SetAnisotropyEnable(anisotropy_enable_);
-    previous_anisotropy_enable = anisotropy_enable_;
 
     if (atmosphere_render_init_parameters_ != previous_atmosphere_render_init_parameters)
         atmosphere_renderer_ = std::make_unique<AtmosphereRenderer>(atmosphere_render_init_parameters_);
-    previous_atmosphere_render_init_parameters = atmosphere_render_init_parameters_;
+
+    if (smaa_option_ != previous_smaa_option) {
+        auto [width, height] = GetWindowSize();
+        smaa_ = std::make_unique<SMAA>(width, height, smaa_option_);
+    }
 }
 
 void AppWindow::HandleReshapeEvent(int viewport_width, int viewport_height) {
@@ -545,6 +552,7 @@ void AppWindow::HandleReshapeEvent(int viewport_width, int viewport_height) {
         gbuffer_ = std::make_unique<GBuffer>(viewport_width, viewport_height);
         hdrbuffer_ = std::make_unique<HDRBuffer>(viewport_width, viewport_height);
         camera_.set_aspect(static_cast<float>(viewport_width) / viewport_height);
+        smaa_ = std::make_unique<SMAA>(viewport_width, viewport_height, smaa_option_);
     }
 }
 

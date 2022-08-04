@@ -61,6 +61,9 @@
     <ClInclude Include="include\Serialization.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\SMAA.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Camera.cpp">
@@ -105,6 +108,9 @@
     <ClCompile Include="src\GLReloadableProgram.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\SMAA.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
@@ -115,6 +121,9 @@
     </Filter>
     <Filter Include="shaders">
       <UniqueIdentifier>{321a3ec6-8c51-4518-8435-389b24473c9d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shaders\SMAA">
+      <UniqueIdentifier>{0858a023-2bab-4b87-8250-fdb97ccb1528}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -138,6 +147,15 @@
     </None>
     <None Include="..\..\shaders\Base\Noise.glsl">
       <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\SMAA\BlendingWeightCalculation.glsl">
+      <Filter>shaders\SMAA</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\SMAA\EdgeDetection.glsl">
+      <Filter>shaders\SMAA</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\SMAA\NeighborhoodBlending.glsl">
+      <Filter>shaders\SMAA</Filter>
     </None>
   </ItemGroup>
 </Project>

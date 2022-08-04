@@ -129,9 +129,9 @@ void VolumetricCloudDefaultMaterialCommon::DrawGUI() {
 		displacement_.buffer.DrawGUI();
 		ImGui::TreePop();
 	}
-	EnumSelectable("Sampler 2D Filter", &minfilter2d_);
-	EnumSelectable("Sampler 3D Filter", &minfilter3d_);
-	EnumSelectable("Sampler Displacement Filter", &minfilter_displacement_);
+	ImGui::EnumSelect("Sampler 2D Filter", &minfilter2d_);
+	ImGui::EnumSelect("Sampler 3D Filter", &minfilter3d_);
+	ImGui::EnumSelect("Sampler Displacement Filter", &minfilter_displacement_);
 	ImGui::SliderFloat("Lod Bias", &lod_bias_, -2.0f, 10.0f);
 	ImGui::SliderFloat("Cloud Map Repeat Size", &cloud_map_.texture.repeat_size, 0.1f, 100.0f);
 	ImGui::SliderFloat("Detail Repeat Size", &detail_.texture.repeat_size, 0.1f, 100.0f);

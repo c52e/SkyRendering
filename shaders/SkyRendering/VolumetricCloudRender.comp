@@ -24,7 +24,9 @@ layout(std140, binding = 2) uniform VolumetricCloudBufferData {
 	vec3 uEnvColorScale;
 	float uShadowSteps;
     
-	float _cloud_padding;
+	vec3 _cloud_padding;
+    float uSunMultiscatteringSigmaScale;
+    float uEnvMultiscatteringSigmaScale;
 	float uInvShadowFroxelMaxDistance;
 	float uShadowDistance;
 	float uAerialPerspectiveLutMaxDistance;
@@ -130,9 +132,9 @@ void RayMarchStep(inout RayMarchContext ctx) {
     // https://advances.realtimerendering.com/s2021/jpatry_advances2021/index.html#/96/0/8
     float phase = mix(HenyeyGreenstein(ctx.cos_sun_view, -0.15) * 2.16,
                       HenyeyGreenstein(ctx.cos_sun_view, 0.85),
-                      exp(-0.3 * sigma_t) * transmittance_to_sun);
+                      exp(-uSunMultiscatteringSigmaScale * sigma_t) /* * transmittance_to_sun*/);
     sun_env.r = transmittance_to_sun * phase;
-    sun_env.g = ctx.height01 * (1 - exp(-0.1 * sigma_t) * transmittance_to_sun);
+    sun_env.g = ctx.height01 * (1 - exp(-uEnvMultiscatteringSigmaScale * sigma_t));
 
     sun_env = sun_env - sun_env * tr;
     ctx.sun_env += ctx.transmittance * sun_env;

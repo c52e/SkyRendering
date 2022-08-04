@@ -11,27 +11,37 @@
 #include "PerformanceMarker.h"
 
 HDRBuffer::HDRBuffer(int width, int height) {
-	framebuffers_.Create();
-	textures_.Create(GL_TEXTURE_2D);
+	framebuffer_.Create();
+	hdr_textures_.Create(GL_TEXTURE_2D);
+	sdr_texture_.Create(GL_TEXTURE_2D);
 
-	for (int i = 0; i < framebuffers_.size(); ++i) {
-		glTextureStorage2D(textures_[i], 1, GL_RGBA16F, width, height);
+	for (int i = 0; i < hdr_textures_.size(); ++i)
+		glTextureStorage2D(hdr_textures_[i], 1, GL_RGBA16F, width, height);
+	glTextureStorage2D(sdr_texture_.id(), 1, GL_RGBA8, width, height);
 
-		glNamedFramebufferTexture(framebuffers_[i], GL_COLOR_ATTACHMENT0, textures_[i], 0);
+	glNamedFramebufferTexture(framebuffer_.id(), GL_COLOR_ATTACHMENT0, hdr_textures_[0], 0);
+	GLenum attachments[]{ GL_COLOR_ATTACHMENT0 };
+	glNamedFramebufferDrawBuffers(framebuffer_.id(), GLsizei(std::size(attachments)), attachments);
 
-		GLenum attachments[]{ GL_COLOR_ATTACHMENT0 };
-		constexpr GLsizei attachments_num = sizeof(attachments) / sizeof(attachments[0]);
-		glNamedFramebufferDrawBuffers(framebuffers_[i], attachments_num, attachments);
-
-		if (glCheckNamedFramebufferStatus(framebuffers_[i], GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-			throw std::runtime_error("Framebuffer Incomplete");
-		}
+	if (glCheckNamedFramebufferStatus(framebuffer_.id(), GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		throw std::runtime_error("Framebuffer Incomplete");
 	}
 }
 
-void HDRBuffer::DoPostProcess(GLuint target_framebuffer_id, const PostProcessParameters& params) {
+void HDRBuffer::BindHdrFramebuffer() const {
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.id());
+	glNamedFramebufferTexture(framebuffer_.id(), GL_COLOR_ATTACHMENT0, hdr_textures_[0], 0);
+}
+
+void HDRBuffer::BindSdrFramebuffer() const {
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.id());
+	glNamedFramebufferTexture(framebuffer_.id(), GL_COLOR_ATTACHMENT0, sdr_texture_.id(), 0);
+}
+
+void HDRBuffer::DoPostProcessAndBindSdrFramebuffer(const PostProcessParameters& params) {
 	PERF_MARKER("PostProcess")
-	PostProcessRenderer::Instance().Render(target_framebuffer_id, *this, params);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_.id());
+	PostProcessRenderer::Instance().Render(*this, params);
 }
 
 HDRBuffer::PostProcessRenderer::PostProcessRenderer() {
@@ -61,28 +71,28 @@ HDRBuffer::PostProcessRenderer::PostProcessRenderer() {
 	}
 }
 
-void HDRBuffer::PostProcessRenderer::Render(GLuint target_framebuffer_id, const HDRBuffer& hdrbuffer, const PostProcessParameters& params) {
-	GLBindTextures({ hdrbuffer.textures_[0],
-					hdrbuffer.textures_[1],
-					hdrbuffer.textures_[2],
+void HDRBuffer::PostProcessRenderer::Render(const HDRBuffer& hdrbuffer, const PostProcessParameters& params) {
+	GLBindTextures({ hdrbuffer.hdr_textures_[0],
+					hdrbuffer.hdr_textures_[1],
+					hdrbuffer.hdr_textures_[2],
 					params.dither_color_enable ? Textures::Instance().blue_noise() : 0 });
 	GLBindSamplers({ static_cast<GLuint>(0),
 					Samplers::GetLinearNoMipmapClampToEdge(),
 					Samplers::GetLinearNoMipmapClampToEdge(),
 					static_cast<GLuint>(0) });
 
-	glBindFramebuffer(GL_FRAMEBUFFER, hdrbuffer.framebuffers_[1]);
+	glNamedFramebufferTexture(hdrbuffer.framebuffer_.id(), GL_COLOR_ATTACHMENT0, hdrbuffer.hdr_textures_[1], 0);
 	glUseProgram(extract_.id());
 	glUniform1f(0, params.bloom_min_luminance);
 	glUniform1f(1, params.bloom_max_delta_luminance);
 	ScreenRectangle::Instance().Draw();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, hdrbuffer.framebuffers_[2]);
+	glNamedFramebufferTexture(hdrbuffer.framebuffer_.id(), GL_COLOR_ATTACHMENT0, hdrbuffer.hdr_textures_[2], 0);
 	glUseProgram(pass1_.id());
 	glUniform1f(0, params.bloom_filter_width);
 	ScreenRectangle::Instance().Draw();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, target_framebuffer_id);
+	glNamedFramebufferTexture(hdrbuffer.framebuffer_.id(), GL_COLOR_ATTACHMENT0, hdrbuffer.sdr_texture_.id(), 0);
 	glUseProgram(pass2_[static_cast<uint32_t>(params.tone_mapping)][params.dither_color_enable].id());
 	glUniform1f(0, params.bloom_filter_width);
 	glUniform1f(1, params.bloom_intensity);

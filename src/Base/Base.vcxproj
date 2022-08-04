@@ -105,6 +105,7 @@
     <ClInclude Include="include\Serialization.h" />
     <ClInclude Include="include\ShadowMap.h" />
     <ClInclude Include="include\Singleton.h" />
+    <ClInclude Include="include\SMAA.h" />
     <ClInclude Include="include\Textures.h" />
     <ClInclude Include="include\Utils.h" />
   </ItemGroup>
@@ -121,6 +122,7 @@
     <ClCompile Include="src\Samplers.cpp" />
     <ClCompile Include="src\ScreenRectangle.cpp" />
     <ClCompile Include="src\ShadowMap.cpp" />
+    <ClCompile Include="src\SMAA.cpp" />
     <ClCompile Include="src\Textures.cpp" />
     <ClCompile Include="src\Utils.cpp" />
   </ItemGroup>
@@ -132,6 +134,9 @@
     <None Include="..\..\shaders\Base\ExtractColor.frag" />
     <None Include="..\..\shaders\Base\GBuffer.glsl" />
     <None Include="..\..\shaders\Base\Noise.glsl" />
+    <None Include="..\..\shaders\Base\SMAA\BlendingWeightCalculation.glsl" />
+    <None Include="..\..\shaders\Base\SMAA\EdgeDetection.glsl" />
+    <None Include="..\..\shaders\Base\SMAA\NeighborhoodBlending.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

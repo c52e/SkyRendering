@@ -23,7 +23,7 @@ vec3 GetEarthAlbedo(sampler2D earth_albedo, vec3 ground_position) {
     vec3 direction = normalize(ground_position - earth_center);
     float theta = acos(direction.y);
     float phi = atan(direction.x, direction.z);
-    vec2 coord = vec2(INV_PI * 0.5 * phi + 0.5, theta * INV_PI);
+    vec2 coord = vec2(INV_PI * 0.5 * phi + 0.5, 1.0 - theta * INV_PI);
     return pow(texture(earth_albedo, coord).xyz, vec3(2.2));
 }
 
