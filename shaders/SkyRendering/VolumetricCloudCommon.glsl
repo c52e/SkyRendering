@@ -48,4 +48,8 @@ ivec2 IndexToOffset(uint index) {
 #endif
 }
 
+vec4 texelFetchClamp(sampler2D s, ivec2 p, int lod) {
+	return texelFetch(s, clamp(p, ivec2(0), textureSize(s, lod) - 1), lod);
+}
+
 #endif

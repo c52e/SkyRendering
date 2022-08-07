@@ -41,11 +41,11 @@ void main() {
         block_0_0.x,
         block_0_0.y,
         block_0_0.z,
-        texelFetch(index_linear_depth_texture, (pos >> 1) + kOffsets[4], 0).g,
+        texelFetchClamp(index_linear_depth_texture, (pos >> 1) + kOffsets[4], 0).g,
         block_minus1_minus1.z,
         block_minus1_minus1.w,
         block_minus1_minus1.x,
-        texelFetch(index_linear_depth_texture, (pos >> 1) + kOffsets[8], 0).g,
+        texelFetchClamp(index_linear_depth_texture, (pos >> 1) + kOffsets[8], 0).g,
     };
 
     float delta_linear_depths[9];
@@ -60,7 +60,7 @@ void main() {
         }
     }
 
-    vec4 rendered_nearest = texelFetch(render_texture, (pos >> 1) + kOffsets[nearest_i], 0);
+    vec4 rendered_nearest = texelFetchClamp(render_texture, (pos >> 1) + kOffsets[nearest_i], 0);
     Reinhard(rendered_nearest);
     vec4 aabb_min = rendered_nearest;
     vec4 aabb_max = rendered_nearest;
@@ -68,10 +68,10 @@ void main() {
     vec4 m2 = vec4(0.0);
     float N = 1e-6;
     for (int i = 0; i < 9; ++i) {
-        vec4 rendered = texelFetch(render_texture, (pos >> 1) + kOffsets[i], 0);
+        vec4 rendered = texelFetchClamp(render_texture, (pos >> 1) + kOffsets[i], 0);
         Reinhard(rendered);
         if (delta_linear_depths[i] < rendered_linear_depths[i] * 0.3
-            || abs(rendered.a - rendered_nearest.a) < 0.2 /* Prevent flicker near the horizon when camera is above the cloud*/) {
+            || abs(rendered.a - rendered_nearest.a) / max(1e-6, 1 - max(rendered.a, rendered_nearest.a)) < 0.2 /* Prevent flicker near the horizon when camera is above the cloud*/) {
             aabb_min = min(aabb_min, rendered);
             aabb_max = max(aabb_max, rendered);
             m1 += rendered;

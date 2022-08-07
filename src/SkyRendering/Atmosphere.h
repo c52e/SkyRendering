@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 
 #include "gl.hpp"
-#include "GLProgram.h"
+#include "GLReloadableProgram.h"
 #include "PerformanceMarker.h"
 #include "Serialization.h"
 
@@ -85,8 +85,8 @@ private:
     GLBuffer atmosphere_parameters_buffer_;
 
     GLTexture transmittance_texture_;
-    GLProgram transmittance_program_;
+    GLReloadableProgram transmittance_program_;
 
     GLTexture multiscattering_texture_;
-    GLProgram multiscattering_program_;
+    GLReloadableProgram multiscattering_program_;
 };

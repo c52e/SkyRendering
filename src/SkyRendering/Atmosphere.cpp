@@ -77,23 +77,25 @@ Atmosphere::Atmosphere() {
     glTextureStorage2D(transmittance_texture_.id(), 1, kTransmittanceTextureInternalFormat,
         kTransmittanceTextureWidth, kTransmittanceTextureHeight);
 
-    auto transmittance_program_src =
-        "#version 460\n"
-        "#define TRANSMITTANCE_COMPUTE_PROGRAM\n"
-        "#define LOCAL_SIZE_X " + std::to_string(kTransmittanceLocalSizeX) + "\n"
-        "#define LOCAL_SIZE_Y " + std::to_string(kTransmittanceLocalSizeY) + "\n"
-        + ReadWithPreprocessor("../shaders/SkyRendering/Atmosphere.glsl");
-    transmittance_program_ = GLProgram(transmittance_program_src.c_str());
+    transmittance_program_ = []() {
+        auto transmittance_program_src =
+            "#version 460\n"
+            "#define TRANSMITTANCE_COMPUTE_PROGRAM\n"
+            "#define LOCAL_SIZE_X " + std::to_string(kTransmittanceLocalSizeX) + "\n"
+            "#define LOCAL_SIZE_Y " + std::to_string(kTransmittanceLocalSizeY) + "\n"
+            + ReadWithPreprocessor("../shaders/SkyRendering/Atmosphere.glsl");
+        return GLProgram(transmittance_program_src.c_str()); };
 
     multiscattering_texture_.Create(GL_TEXTURE_2D);
     glTextureStorage2D(multiscattering_texture_.id(), 1, kMultiscatteringTextureInternalFormat,
         kMultiscatteringTextureWidth, kMultiscatteringTextureHeight);
 
-    auto multiscattering_program_src =
-        "#version 460\n"
-        "#define MULTISCATTERING_COMPUTE_PROGRAM\n"
-        + ReadWithPreprocessor("../shaders/SkyRendering/Atmosphere.glsl");
-    multiscattering_program_ = GLProgram(multiscattering_program_src.c_str());
+    multiscattering_program_ = []() {
+        auto multiscattering_program_src =
+            "#version 460\n"
+            "#define MULTISCATTERING_COMPUTE_PROGRAM\n"
+            + ReadWithPreprocessor("../shaders/SkyRendering/Atmosphere.glsl");
+        return GLProgram(multiscattering_program_src.c_str()); };
 }
 
 void Atmosphere::UpdateLuts(const AtmosphereParameters& parameters) {

@@ -8,10 +8,6 @@ layout(binding = 2) uniform sampler2D recontruct_texture;
 
 layout(binding = 0, rgba16f) uniform image2D hdr_image;
 
-vec4 texelFetchClamp(sampler2D s, ivec2 p, int lod) {
-    return texelFetch(s, clamp(p, ivec2(0), textureSize(s, lod)), lod);
-}
-
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     float depth = texelFetch(depth_texture, pos, 0).x;
@@ -43,7 +39,7 @@ void main() {
                     , max(reconstructed_neighbors[2].a, reconstructed_neighbors[3].a));
     float min_a = min(min(reconstructed_neighbors[0].a, reconstructed_neighbors[1].a)
                     , min(reconstructed_neighbors[2].a, reconstructed_neighbors[3].a));
-    if (is_edge && max_a - min_a > 0.2) {
+    if (is_edge && (max_a - min_a) / max(1e-6, 1 - min_a) > 0.2) {
         upscaled = reconstructed_neighbors[nearest_i];
     } else {
         upscaled = ((reconstructed_neighbors[0] + reconstructed_neighbors[1])

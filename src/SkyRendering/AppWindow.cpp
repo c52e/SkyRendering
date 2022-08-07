@@ -233,7 +233,7 @@ void AppWindow::ProcessInput() {
         dUp -= camera_speed_ * dt;
     auto move_vector = camera_.front() * dForward + camera_.right() * dRight + kWorldUp * dUp;
     auto new_position = camera_.position() + move_vector;
-    auto radius = earth_.parameters.bottom_radius;
+    auto radius = earth_.parameters.bottom_radius + camera_.zNear;
     auto center = earth_.center();
     if (glm::length(new_position - center) < radius) {
         new_position = glm::normalize(new_position - center) * (radius + 0.001f) + center;

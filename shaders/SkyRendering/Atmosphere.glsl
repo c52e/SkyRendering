@@ -348,6 +348,9 @@ void main() {
 vec3 GetDirectionFromLocalIndex(int index) {
     float unit_theta = (0.5 + float(index / 8)) / 8.0;
     float unit_phi = (0.5 + float(index % 8)) / 8.0;
+    // Uniformly sample on a sphere
+    unit_theta = unit_theta * 2.0 - 1.0;
+    unit_theta = sign(unit_theta) * (1 - sqrt(abs(unit_theta))) * 0.5 + 0.5; // acos(1-x)/(0.5*PI) approximately equals sqrt(x)
     float theta = PI * unit_theta;
     float phi = 2 * PI * unit_phi;
     float cos_theta = cos(theta);
