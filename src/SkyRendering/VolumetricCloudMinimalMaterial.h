@@ -10,6 +10,8 @@ public:
 
     void Bind() override;
 
+    float GetSigmaTMax() override;
+
     void DrawGUI() override;
 
 private:

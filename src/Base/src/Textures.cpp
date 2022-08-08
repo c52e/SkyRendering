@@ -9,6 +9,12 @@ Textures::Textures() {
         uint8_t data[]{ 0xff,0xff,0xff,0xff };
         glTextureSubImage2D(white_.id(), 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
     }
+    {
+        normal_.Create(GL_TEXTURE_2D);
+        glTextureStorage2D(normal_.id(), 1, GL_RGBA8, 1, 1);
+        uint8_t data[]{ 0x7f,0x7f,0xff,0xff };
+        glTextureSubImage2D(normal_.id(), 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    }
     int x, y, n;
     {
         auto data = stbi_load_16_unique("../data/BlueNoise/64_64/HDR_L_0.png", &x, &y, &n, 0);
@@ -18,7 +24,7 @@ Textures::Textures() {
         glTextureSubImage2D(blue_noise_.id(), 0, 0, 0, x, y, GL_RED, GL_UNSIGNED_SHORT, data.get());
     }
     {
-        auto data = stbi_load_unique("../data/NASA/lroc_color_poles_2048x2048.jpg", &x, &y, &n, 0);
+        auto data = stbi_load_unique("../data/NASA/lroc_color_poles_2k.jpg", &x, &y, &n, 0);
 
         moon_albedo_.Create(GL_TEXTURE_2D);
         glTextureStorage2D(moon_albedo_.id(), GetMipmapLevels(x, y), GL_RGB8, x, y);
@@ -26,12 +32,21 @@ Textures::Textures() {
     }
     glGenerateTextureMipmap(moon_albedo_.id());
     {
+        auto data = stbi_load_unique("../data/NASA/moon_normal_2k.jpg", &x, &y, &n, 0);
+
+        moon_normal_.Create(GL_TEXTURE_2D);
+        glTextureStorage2D(moon_normal_.id(), GetMipmapLevels(x, y), GL_RGB8, x, y);
+        glTextureSubImage2D(moon_normal_.id(), 0, 0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
+    }
+    glGenerateTextureMipmap(moon_normal_.id());
+    {
         auto data = stbi_load_unique("../data/NASA/starmap_2020_4k.jpg", &x, &y, &n, 0);
 
         star_luminance_.Create(GL_TEXTURE_2D);
-        glTextureStorage2D(star_luminance_.id(), 1, GL_RGB8, x, y); // 星空不用mipmap，从而实现闪烁的效果
+        glTextureStorage2D(star_luminance_.id(), GetMipmapLevels(x, y), GL_RGB8, x, y);
         glTextureSubImage2D(star_luminance_.id(), 0, 0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
     }
+    glGenerateTextureMipmap(star_luminance_.id());
     {
         auto data = stbi_load_unique("../data/NASA/world.topo.bathy.200401.3x5400x2700.jpg", &x, &y, &n, 0);
 

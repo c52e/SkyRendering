@@ -91,6 +91,8 @@ public:
 
     void Bind();
 
+    float GetSigmaTMax();
+
     void DrawGUI();
 
 private:
@@ -143,11 +145,13 @@ public:
 
     std::string ShaderPath() override;
 
-    void Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta);
+    void Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) override;
 
-    void Bind();
+    void Bind() override;
 
-    void DrawGUI();
+    float GetSigmaTMax() override;
+
+    void DrawGUI() override;
 
 private:
     FIELD_DECLARATION_BEGIN(ISerializable)
@@ -170,11 +174,13 @@ public:
 
     std::string ShaderPath() override;
 
-    void Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta);
+    void Update(glm::vec2 viewport, const Camera& camera, const glm::dvec2& offset_from_first, glm::vec2& additional_delta) override;
 
-    void Bind();
+    void Bind() override;
 
-    void DrawGUI();
+    float GetSigmaTMax() override;
+
+    void DrawGUI() override;
 
 private:
     FIELD_DECLARATION_BEGIN(ISerializable)

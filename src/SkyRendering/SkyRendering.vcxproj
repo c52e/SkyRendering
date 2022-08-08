@@ -53,6 +53,7 @@
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudDefaultMaterial0.glsl" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudDefaultMaterial1.glsl" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudDefaultMaterialCommon.glsl" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudPathTracing.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowFroxel.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowInterface.glsl" />
     <None Include="..\..\shaders\SkyRendering\Common.glsl" />

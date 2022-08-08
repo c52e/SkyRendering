@@ -88,6 +88,8 @@ private:
         ::GLBindSamplers(arr, first);
     }
 
+    std::function<std::string(const std::string&)> CreateShaderPostProcess(std::string additional = "") const;
+
     IVolumetricCloudMaterial* preframe_material_;
 
     struct ViewportData {
@@ -133,4 +135,26 @@ private:
     GLuint atmosphere_transmittance_tex_ = 0;
     GLuint aerial_perspective_luminance_tex_ = 0;
     GLuint aerial_perspective_transmittance_tex_ = 0;
+
+
+    class PathTracing {
+    public:
+        struct InitParam {
+            int max_scattering_order = 8;
+            float region_box_half_width = 20.0f;
+        };
+
+        PathTracing(const VolumetricCloud& cloud, const InitParam& init);
+
+        void Render(GLuint hdr_texture);
+
+    private:
+        const VolumetricCloud& cloud_;
+
+        GLReloadableComputeProgram program_;
+        GLTexture accumulating_texture_;
+        uint32_t frame_cnt_ = 0;
+    };
+    std::unique_ptr<PathTracing> path_tracing_;
+    PathTracing::InitParam path_tracing_init_param_;
 };

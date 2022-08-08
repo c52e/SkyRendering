@@ -116,6 +116,10 @@ void VolumetricCloudDefaultMaterialCommon::Bind() {
 		}, IVolumetricCloudMaterial::kMaterialTextureUnitBegin);
 }
 
+float VolumetricCloudDefaultMaterialCommon::GetSigmaTMax() {
+	return density_;
+}
+
 void VolumetricCloudDefaultMaterialCommon::DrawGUI() {
 	if (ImGui::TreeNode("Cloud Map")) {
 		cloud_map_.buffer.DrawGUI();
@@ -203,6 +207,10 @@ void VolumetricCloudDefaultMaterial0::Bind() {
 	glBindBufferBase(GL_UNIFORM_BUFFER, 4, buffer_.id());
 }
 
+float VolumetricCloudDefaultMaterial0::GetSigmaTMax() {
+	return materail_common_.GetSigmaTMax();
+}
+
 void VolumetricCloudDefaultMaterial0::DrawGUI() {
 	materail_common_.DrawGUI();
 
@@ -248,6 +256,10 @@ void VolumetricCloudDefaultMaterial1::Update(glm::vec2 viewport, const Camera& c
 void VolumetricCloudDefaultMaterial1::Bind() {
 	materail_common_.Bind();
 	glBindBufferBase(GL_UNIFORM_BUFFER, 4, buffer_.id());
+}
+
+float VolumetricCloudDefaultMaterial1::GetSigmaTMax() {
+	return materail_common_.GetSigmaTMax();
 }
 
 void VolumetricCloudDefaultMaterial1::DrawGUI() {

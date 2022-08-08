@@ -8,6 +8,7 @@
 struct MeshVertices {
 	std::vector<std::array<float, 3>> positions;
 	std::vector<std::array<float, 3>> normals;
+	std::vector<std::array<float, 3>> tangents;
 	std::vector<std::array<float, 2>> uvs;
 	std::vector<unsigned int> indices;
 	GLenum mode;

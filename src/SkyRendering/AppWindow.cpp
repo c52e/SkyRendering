@@ -56,23 +56,32 @@ void AppWindow::Init(const char* config_path) {
     {
         auto object = std::make_unique<MeshObject>("Moon", Meshes::Instance().sphere(), earth_.moon_model(), false);
         object->material.albedo_texture = Textures::Instance().moon_albedo();
+        object->material.normal_texture = Textures::Instance().moon_normal();
         moon_ = object.get();
         mesh_objects_.push_back(std::move(object));
-
     }
     {
         auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(0, 1, 1));
-        auto object = std::make_unique<MeshObject>("Earth Model", Meshes::Instance().sphere(), model, true);
+        auto object = std::make_unique<MeshObject>("Tiny Earth", Meshes::Instance().sphere(), model, true);
         object->material.albedo_texture = Textures::Instance().earth_albedo();
         mesh_objects_.push_back(std::move(object));
     }
     {
         auto model = glm::identity<glm::mat4>();
+        model = glm::translate(model, glm::vec3(0, 1, 3));
+        model = glm::scale(model, glm::vec3(0.4));
+        auto object = std::make_unique<MeshObject>("Tiny Moon", Meshes::Instance().sphere(), model, true);
+        object->material.albedo_texture = Textures::Instance().moon_albedo();
+        object->material.normal_texture = Textures::Instance().moon_normal();
+        mesh_objects_.push_back(std::move(object));
+    }
+    {
+        auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(0, 0, -1));
-        model = glm::scale(model, glm::vec3(0.3e-3, 0.3e-3, 0.3e-3));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(0, -1, 0));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(-1, 0, 0));
+        model = glm::scale(model, glm::vec3(0.3e-3, 0.3e-3, 0.3e-3));
         auto object = std::make_unique<MeshObject>("Tyrannosaurus", Meshes::Instance().tyrannosaurus_rex(), model, true);
         object->material.albedo_factor = { 0.42, 0.42, 0.42 };
         mesh_objects_.push_back(std::move(object));
@@ -80,8 +89,8 @@ void AppWindow::Init(const char* config_path) {
     {
         auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(-3, 0, -1.5));
-        model = glm::scale(model, glm::vec3(1e-1, 1e-1, 1e-1));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(0, -1, 0));
+        model = glm::scale(model, glm::vec3(1e-1, 1e-1, 1e-1));
         auto object = std::make_unique<MeshObject>("Wall", Meshes::Instance().wall(), model, true);
         object->material.albedo_factor = { 0.42, 0.42, 0.42 };
         mesh_objects_.push_back(std::move(object));
@@ -89,8 +98,8 @@ void AppWindow::Init(const char* config_path) {
     {
         auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(-2, -0.1, -2));
-        model = glm::scale(model, glm::vec3(1e-2, 1e-2, 1e-2));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(-1, 0, 0));
+        model = glm::scale(model, glm::vec3(1e-2, 1e-2, 1e-2));
         auto object = std::make_unique<MeshObject>("Fence", Meshes::Instance().fence(), model, true);
         object->material.albedo_factor = { 0.42, 0.42, 0.42 };
         mesh_objects_.push_back(std::move(object));
@@ -98,9 +107,9 @@ void AppWindow::Init(const char* config_path) {
     {
         auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(-2.2, 0.8, -2.0));
-        model = glm::scale(model, glm::vec3(1e-2, 1e-2, 1e-2));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(0, 1, 0));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(0, 0, 1));
+        model = glm::scale(model, glm::vec3(1e-2, 1e-2, 1e-2));
         auto object = std::make_unique<MeshObject>("Fence2", Meshes::Instance().fence(), model, true);
         object->material.albedo_factor = { 0.42, 0.42, 0.42 };
         mesh_objects_.push_back(std::move(object));
@@ -108,8 +117,8 @@ void AppWindow::Init(const char* config_path) {
     {
         auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(2, 0, 0));
-        model = glm::scale(model, glm::vec3(1e-1, 1e1, 1e-1));
         model = glm::rotate(model, glm::pi<float>() / 2, glm::vec3(-1, 0, 0));
+        model = glm::scale(model, glm::vec3(1e-1, 1e-1, 1e1));
         auto object = std::make_unique<MeshObject>("Cylinder", Meshes::Instance().cylinder(), model, true);
         object->material.albedo_factor = { 0.42, 0.42, 0.42 };
         mesh_objects_.push_back(std::move(object));

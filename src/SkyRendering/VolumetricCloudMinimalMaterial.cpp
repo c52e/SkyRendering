@@ -24,6 +24,10 @@ void VolumetricCloudMinimalMaterial::Bind() {
 	glBindBufferBase(GL_UNIFORM_BUFFER, 3, buffer_.id());
 }
 
+float VolumetricCloudMinimalMaterial::GetSigmaTMax() {
+	return density_;
+}
+
 void VolumetricCloudMinimalMaterial::DrawGUI() {
 	ImGui::SliderFloat("Density", &density_, 0.0f, 1.0f);
 }

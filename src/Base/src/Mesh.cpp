@@ -4,6 +4,15 @@
 #include <cmath>
 #include <fstream>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+inline glm::vec3 GetAnyOrthogonalVector(const glm::vec3& N) {
+    if (glm::abs(N.z) < 1e-6f)
+        return { 0,0,1 };
+    return glm::normalize(glm::vec3(1, 1, (-N.x - N.y) / N.z));
+}
+
 Mesh::Mesh(const MeshVertices& vertices) {
     assert(vertices.mode == GL_TRIANGLES
         || vertices.mode == GL_TRIANGLE_STRIP
@@ -13,8 +22,7 @@ Mesh::Mesh(const MeshVertices& vertices) {
     auto vertices_num = vertices.positions.size();
     mode = vertices.mode;
     count = static_cast<GLsizei>(vertices.indices.size());
-    bool has_uv = !vertices.uvs.empty();
-    int stride = has_uv ? 8 : 6;
+    constexpr int stride = 11;
 
     vao_.Create();
     vbo_.Create();
@@ -28,9 +36,24 @@ Mesh::Mesh(const MeshVertices& vertices) {
         data.push_back(vertices.normals[i][0]);
         data.push_back(vertices.normals[i][1]);
         data.push_back(vertices.normals[i][2]);
-        if (has_uv) {
+        if (!vertices.uvs.empty()) {
             data.push_back(vertices.uvs[i][0]);
             data.push_back(vertices.uvs[i][1]);
+            if (vertices.tangents.empty()) {
+               // TODO: calculate tangents
+                throw std::runtime_error("Tangents is empty");
+            }
+            data.push_back(vertices.tangents[i][0]);
+            data.push_back(vertices.tangents[i][1]);
+            data.push_back(vertices.tangents[i][2]);
+        }
+        else {
+            data.push_back(0);
+            data.push_back(0);
+            auto tangent = GetAnyOrthogonalVector(glm::make_vec3(vertices.normals[i].data()));
+            data.push_back(tangent[0]);
+            data.push_back(tangent[1]);
+            data.push_back(tangent[2]);
         }
     }
     glNamedBufferStorage(vbo_.id(), sizeof(data[0]) * data.size(), data.data(), 0);
@@ -43,10 +66,10 @@ Mesh::Mesh(const MeshVertices& vertices) {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    if (has_uv) {
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-    }
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
 }
 
 void Mesh::Draw() const {
@@ -72,6 +95,7 @@ MeshVertices CreatePyramid() {
 }
 
 MeshVertices CreateSphere() {
+    // https://learnopengl.com/code_viewer_gh.php?code=src/6.pbr/1.2.lighting_textured/lighting_textured.cpp
     MeshVertices vertices;
     vertices.mode = GL_TRIANGLE_STRIP;
 
@@ -86,8 +110,13 @@ MeshVertices CreateSphere() {
             float yPos = cos(ySegment * pi);
             float zPos = sin(xSegment * 2.0f * pi) * sin(ySegment * pi);
 
+            float xTan = sin(xSegment * 2.0f * pi);
+            float yTan = 0;
+            float zTan = -cos(xSegment * 2.0f * pi);
+
             vertices.positions.push_back({ xPos, yPos, zPos });
             vertices.normals.push_back({ xPos, yPos, zPos });
+            vertices.tangents.push_back({ xTan , yTan, zTan });
             vertices.uvs.push_back({ 1.0f - xSegment, 1.0f - ySegment });
         }
     }

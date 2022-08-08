@@ -26,7 +26,8 @@ struct VolumetricCloudCommonBufferData {
 	glm::vec3 uSunDirection;
 	float uFrameID;
 
-	glm::vec2 _cloud_common_padding;
+	float uInvShadowFroxelMaxDistance;
+	float uAerialPerspectiveLutMaxDistance;
 	float uShadowFroxelMaxDistance;
 	float uEarthRadius;
 };
@@ -40,12 +41,10 @@ struct VolumetricCloudBufferData {
 	glm::vec3 uEnvColorScale;
 	float uShadowSteps;
 
-	glm::vec3 _cloud_padding;
 	float uSunMultiscatteringSigmaScale;
 	float uEnvMultiscatteringSigmaScale;
-	float uInvShadowFroxelMaxDistance;
 	float uShadowDistance;
-	float uAerialPerspectiveLutMaxDistance;
+	float padding_;
 };
 
 static const glm::ivec2 kShadowMapResolution{ 512, 512 };
@@ -171,23 +170,15 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 		return;
 
 	if (material.get() != preframe_material_) {
-		auto post_process = [material_path = material->ShaderPath()](const std::string& src) {
-			std::stringstream ss;
-			ss << "#version 460\n";
-			ss << "#define MATERIAL_TEXTURE_UNIT_BEGIN " << std::to_string(IVolumetricCloudMaterial::kMaterialTextureUnitBegin) << "\n";
-			ss << src << "\n";
-			ss << ReadWithPreprocessor(material_path.c_str());
-			return ss.str();
-		};
 		render_program_ = {
 			"../shaders/SkyRendering/VolumetricCloudRender.comp",
 			{{16, 8}, {8, 4}, {8, 8}, {16, 4}, {32, 8}, {32, 16}, {32, 32}},
-			post_process
+			CreateShaderPostProcess()
 		};
 		shadow_map_gen_program_ = {
 			"../shaders/SkyRendering/VolumetricCloudShadowMap.comp",
 			{{16, 8}, {8, 4}, {8, 8}, {16, 4}, {16, 16}, {32, 8}, {32, 16}},
-			post_process
+			CreateShaderPostProcess()
 		};
 		preframe_material_ = material.get();
 	}
@@ -234,6 +225,8 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	auto pre_model = model_;
 	auto pre_light_vp = light_vp_;
 
+	auto aerial_perspective = atmosphere_render.aerial_perspective_lut();
+
 	VolumetricCloudCommonBufferData common_buffer;
 	common_buffer.uInvMVP = glm::inverse(mvp);
 	common_buffer.uReprojectMat = pre_mvp * delta_mat;
@@ -249,11 +242,15 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	common_buffer.uTopAltitude = bottom_altitude_ + thickness_;
 	common_buffer.uFrameID = static_cast<float>(frame_id_);
 	common_buffer.uShadowFroxelMaxDistance = shadow_froxel_max_distance;
+	common_buffer.uAerialPerspectiveLutMaxDistance = aerial_perspective.max_distance;
+	common_buffer.uInvShadowFroxelMaxDistance = GetShadowFroxel().inv_max_distance;
 
 	glNamedBufferSubData(common_buffer_.id(), 0, sizeof(common_buffer), &common_buffer);
 
+	atmosphere_transmittance_tex_ = earth.atmosphere().transmittance_texture();
+	aerial_perspective_luminance_tex_ = aerial_perspective.luminance_tex;
+	aerial_perspective_transmittance_tex_ = aerial_perspective.transmittance_tex;
 
-	auto aerial_perspective = atmosphere_render.aerial_perspective_lut();
 
 	VolumetricCloudBufferData buffer;
 	buffer.uMaxRaymarchDistance = max_raymarch_distance_;
@@ -263,16 +260,10 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	buffer.uSunIlluminanceScale = sun_illuminance_scale_;
 	buffer.uShadowSteps = shadow_steps_;
 	buffer.uShadowDistance = shadow_distance_;
-	buffer.uAerialPerspectiveLutMaxDistance = aerial_perspective.max_distance;
-	buffer.uInvShadowFroxelMaxDistance = GetShadowFroxel().inv_max_distance;
 	buffer.uSunMultiscatteringSigmaScale = sun_multiscattering_sigma_scale;
 	buffer.uEnvMultiscatteringSigmaScale = env_multiscattering_sigma_scale;
 
 	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
-
-	atmosphere_transmittance_tex_ = earth.atmosphere().transmittance_texture();
-	aerial_perspective_luminance_tex_ = aerial_perspective.luminance_tex;
-	aerial_perspective_transmittance_tex_ = aerial_perspective.transmittance_tex;
 
 	offset_from_first_ += glm::dvec2(delta_local);
 	frame_id_ = (frame_id_ + 1) & 0xff;
@@ -329,6 +320,11 @@ void VolumetricCloud::RenderShadow() {
 }
 
 void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
+	if (path_tracing_) {
+		path_tracing_->Render(hdr_texture);
+		return;
+	}
+
 	PERF_MARKER("VolumetricCloud");
 	{
 		PERF_MARKER("Checkerboard Depth");
@@ -422,6 +418,18 @@ void VolumetricCloud::Render(GLuint hdr_texture, GLuint depth_texture) {
 }
 
 void VolumetricCloud::DrawGUI() {
+	if (ImGui::Button(u8"StartPathTracing")) {
+		path_tracing_ = std::make_unique<PathTracing>(*this, path_tracing_init_param_);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button(u8"StopPathTracing")) {
+		path_tracing_.reset();
+	}
+	if (ImGui::TreeNode("Path Tracing Settings")) {
+		ImGui::SliderInt("Max Scattering Order", &path_tracing_init_param_.max_scattering_order, 1, 32);
+		ImGui::SliderFloat("Region Box Half Width", &path_tracing_init_param_.region_box_half_width, 0.0f, 100.0f);
+		ImGui::TreePop();
+	}
 	ImGui::SliderFloat("Bottom Altitude", &bottom_altitude_, 0.0f, 10.0f);
 	ImGui::SliderFloat("Thickness", &thickness_, 0.0f, 10.0f);
 	ImGui::SliderFloat("Max Visible Distance", &max_visible_distance_, 0.0f, 1e5f, "%.0f", ImGuiSliderFlags_Logarithmic);
@@ -451,4 +459,57 @@ void VolumetricCloud::DrawGUI() {
 			material->DrawGUI();
 		ImGui::TreePop();
 	}
+}
+
+std::function<std::string(const std::string&)> VolumetricCloud::CreateShaderPostProcess(std::string additional) const {
+	return[material_path = material->ShaderPath(), additional = std::move(additional)](const std::string& src) {
+		std::stringstream ss;
+		ss << "#version 460\n";
+		ss << additional << "\n";
+		ss << "#define MATERIAL_TEXTURE_UNIT_BEGIN " << std::to_string(IVolumetricCloudMaterial::kMaterialTextureUnitBegin) << "\n";
+		ss << src << "\n";
+		ss << ReadWithPreprocessor(material_path.c_str());
+		return ss.str();
+	};
+}
+
+VolumetricCloud::PathTracing::PathTracing(const VolumetricCloud& cloud, const InitParam& init)
+	: cloud_(cloud) {
+	const auto& viewport = cloud.viewport_;
+	accumulating_texture_.Create(GL_TEXTURE_2D);
+	glTextureStorage2D(accumulating_texture_.id(), 1, GL_RGBA32F, viewport.x, viewport.y);
+	float zero[]{ 0,0,0,0 };
+	glClearTexImage(accumulating_texture_.id(), 0, GL_RGBA, GL_FLOAT, zero);
+
+	std::stringstream additional;
+	additional << "#define kSigmaTMax " << cloud_.material->GetSigmaTMax() << "\n";
+	additional << "#define kMaxScatteringOrder " << init.max_scattering_order << "\n";
+	additional << "#define kCloudHalfWidth " << init.region_box_half_width << "\n";
+	program_ = {
+		"../shaders/SkyRendering/VolumetricCloudPathTracing.comp",
+		{{16, 8}, {8, 4}, {8, 8}, {16, 4}, {32, 8}, {32, 16}, {32, 32}},
+		cloud_.CreateShaderPostProcess(additional.str())
+	};
+}
+
+void VolumetricCloud::PathTracing::Render(GLuint hdr_texture) {
+	++frame_cnt_;
+
+	GLBindTextures({ cloud_.atmosphere_transmittance_tex_,
+					cloud_.aerial_perspective_luminance_tex_,
+					cloud_.aerial_perspective_transmittance_tex_,
+					cloud_.GetShadowFroxel().shadow_froxel });
+	GLBindSamplers({ Samplers::GetLinearNoMipmapClampToEdge(),
+					Samplers::GetLinearNoMipmapClampToEdge(),
+					Samplers::GetLinearNoMipmapClampToEdge(),
+					cloud_.GetShadowFroxel().sampler });
+	GLBindImageTextures({ accumulating_texture_.id(),
+						hdr_texture });
+	cloud_.material->Bind();
+	glBindBufferBase(GL_UNIFORM_BUFFER, 1, cloud_.common_buffer_.id());
+	glUseProgram(program_.id());
+	glUniform1ui(0, frame_cnt_);
+	const auto& viewport = cloud_.viewport_;
+	program_.Dispatch(viewport);
+	glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 }

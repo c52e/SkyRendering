@@ -14,6 +14,7 @@ struct Material {
     GLuint albedo_texture = 0;
     float metallic_factor = 0.0f;
     float roughness_factor = 1.0f;
+    GLuint normal_texture = 0;
     GLuint orm_texture = 0;
 };
 

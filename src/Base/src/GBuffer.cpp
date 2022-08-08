@@ -56,7 +56,9 @@ void GBufferRenderer::Setup(const glm::mat4 model_matrix, const glm::mat4& view_
 	glUniform1f(3, material.metallic_factor);
 	glUniform1f(4, material.roughness_factor);
 	GLBindTextures({ Textures::Instance().white(material.albedo_texture),
-					Textures::Instance().white(material.orm_texture) });
+					Textures::Instance().white(material.orm_texture),
+					Textures::Instance().normal(material.normal_texture) });
 	GLBindSamplers({ Samplers::GetAnisotropySampler(Samplers::Wrap::CLAMP_TO_EDGE),
+					Samplers::GetAnisotropySampler(Samplers::Wrap::CLAMP_TO_EDGE),
 					Samplers::GetAnisotropySampler(Samplers::Wrap::CLAMP_TO_EDGE) });
 }

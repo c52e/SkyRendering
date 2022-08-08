@@ -20,6 +20,8 @@ public:
 
     virtual void DrawGUI() = 0;
 
+    virtual float GetSigmaTMax() = 0;
+
 protected:
     FIELD_DECLARATION_BEGIN(ISerializable)
     FIELD_DECLARATION_END()

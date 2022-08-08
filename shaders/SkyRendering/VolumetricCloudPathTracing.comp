@@ -1,0 +1,215 @@
+#include "VolumetricCloudCommon.glsl"
+#include "VolumetricCloudShadowInterface.glsl"
+#include "../Base/Noise.glsl"
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+
+layout(binding = 0) uniform sampler2D transmittance_texture;
+layout(binding = 1) uniform sampler3D aerial_perspective_luminance_texture;
+layout(binding = 2) uniform sampler3D aerial_perspective_transmittance_texture;
+layout(binding = 3) uniform sampler3D shadow_froxel;
+
+layout(binding = 0, rgba32f) uniform image2D accumulating_image;
+layout(binding = 1, rgba16f) uniform image2D display_image;
+
+layout(location = 0) uniform uint kFrameId;
+
+const vec2 kCloudAABBCenter = vec2(0.0);
+const vec3 kCloudAABBMin = vec3(kCloudAABBCenter - vec2(kCloudHalfWidth), uBottomAltitude);
+const vec3 kCloudAABBMax = vec3(kCloudAABBCenter + vec2(kCloudHalfWidth), uTopAltitude);
+
+// https://github.com/sebh/UnrealEngineSkyAtmosphere
+// https://graphics.pixar.com/library/ProductionVolumeRendering/
+
+struct Ray {
+    vec3 o;
+    vec3 d;
+};
+
+Ray CreateRay(vec3 o, vec3 d) {
+    Ray r;
+    r.o = o;
+    r.d = d;
+    return r;
+}
+
+struct Context {
+    uint seed;
+    Ray ray;
+    float sigma_t_max;
+};
+
+float Random01(inout Context ctx) {
+    float res = float(ctx.seed) / (4294967296.0);
+    ctx.seed = WangHash(ctx.seed);
+    return res;
+}
+
+vec3 UniformSphereSample(inout Context ctx) {
+    float phi = 2.0 * PI * Random01(ctx);
+    float theta = acos(1.0 - 2.0 * Random01(ctx));
+    return vec3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
+}
+
+vec2 CloudRegionIntersect(Ray ray) {
+    vec2 t = vec2(0, 1e7);
+    for (int i = 0; i < 3; ++i) {
+//        if (abs(ray.d[i]) < 1e-7) {
+//            if (ray.o[i] < kCloudAABBMin[i] || ray.o[i] > kCloudAABBMax[i])
+//                return vec2(0);
+//            else
+//                continue;
+//        }
+        float t1 = (kCloudAABBMin[i] - ray.o[i]) / ray.d[i];
+        float t2 = (kCloudAABBMax[i] - ray.o[i]) / ray.d[i];
+        float tmin = min(t1, t2);
+        float tmax = max(t1, t2);
+        t.x = max(t.x, tmin);
+        t.y = min(t.y, tmax);
+    }
+
+    return t;
+}
+
+bool IsInsideCloudRegion(vec3 p) {
+    const float kMargin = 0.01; // More robust
+    return all(clamp(p, kCloudAABBMin - kMargin, kCloudAABBMax + kMargin) == p);
+}
+
+float InfiniteTransmittanceIS(float sigma_t, float zeta) {
+    return -log(1.0 - zeta) / sigma_t;
+}
+
+// Should be defined in material shader
+float SampleSigmaT(vec3 pos, float height01);
+
+float SampleSigmaT(vec3 P) {
+    return SampleSigmaT(P, clamp((P.z - uBottomAltitude) / (uTopAltitude - uBottomAltitude), 0, 1));
+}
+
+float GetPhase(float cos_theta) {
+    return mix(HenyeyGreenstein(cos_theta, -0.15),
+                HenyeyGreenstein(cos_theta, 0.85), 0.7);
+}
+
+vec3 GetSunIlluminance(vec3 pos) {
+    return GetSunVisibility(transmittance_texture, pos) * solar_illuminance;
+}
+
+float TransmittanceEstimation(Context ctx, Ray ray) {
+    float transmittance = 1.0;
+    vec2 inter_t = CloudRegionIntersect(ray);
+    if (inter_t.x >= inter_t.y)
+        return transmittance;
+    
+    float t = inter_t.x;
+    while (true) {
+		t += InfiniteTransmittanceIS(ctx.sigma_t_max, Random01(ctx));
+        if (t > inter_t.y)
+            break;
+
+        float sigma_t = SampleSigmaT(ray.o + ray.d * t);
+        transmittance *= 1.0 - max(0, sigma_t / ctx.sigma_t_max); 
+    }
+    return clamp(transmittance, 0, 1);
+}
+
+vec4 Trace(inout Context ctx, vec3 view_dir, out bool has_scattered, out float scattered_t) {
+    vec3 L = vec3(0.0);
+    float throughput = 1.0;
+    has_scattered = false;
+    ctx.ray = CreateRay(uCameraPos, view_dir);
+    vec2 camera_inter_t = CloudRegionIntersect(ctx.ray);
+    if (camera_inter_t.x >= camera_inter_t.y)
+        return vec4(L, throughput);
+
+    ctx.ray.o += camera_inter_t.x * ctx.ray.d;
+    int istep = 0;
+    while (istep < kMaxScatteringOrder && throughput > 0.0) {
+        if (!IsInsideCloudRegion(ctx.ray.o))
+            break;
+        
+        vec2 inter_t = CloudRegionIntersect(ctx.ray);
+        if (inter_t.x >= inter_t.y)
+            break;
+        float t_max = inter_t.y;
+        float t = inter_t.x;
+        bool event_scatter = false;
+        while (true) {
+            if (ctx.sigma_t_max <= 0) break;
+
+            t += InfiniteTransmittanceIS(ctx.sigma_t_max, Random01(ctx));
+            if (t > t_max) break;
+
+            vec3 P = ctx.ray.o + ctx.ray.d * t;
+            float sigma_t = SampleSigmaT(P);
+            
+		    float xi = Random01(ctx);
+            if (xi < sigma_t / ctx.sigma_t_max) {
+                event_scatter = true;
+                break;
+            }
+        }
+        
+        if (!event_scatter)
+            break;
+
+        if (!has_scattered)
+            scattered_t = distance(uCameraPos, ctx.ray.o);
+        has_scattered = true;
+
+        ctx.ray.o = ctx.ray.o + ctx.ray.d * t;
+        vec3 direction = uSunDirection;
+        float sun_area = 1.0;
+        vec3 light_luminance = GetSunIlluminance(ctx.ray.o) / sun_area;
+        float light_pdf = 1.0 / sun_area;
+        float light_bsdf = GetPhase(dot(ctx.ray.d, direction));
+
+        L += throughput * light_luminance * light_bsdf * TransmittanceEstimation(ctx, CreateRay(ctx.ray.o, direction)) / light_pdf;
+        
+        // TODO: importance sampling
+        vec3 next_dir = UniformSphereSample(ctx);
+        float phase_bsdf = GetPhase(dot(ctx.ray.d, next_dir));
+        float phase_pdf = 1.0 / (4.0 * PI);
+        throughput *= phase_bsdf / phase_pdf;
+
+        ctx.ray.d = next_dir;
+        ++istep;
+    }
+
+    return vec4(L, has_scattered ? 0.0 : throughput);
+}
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    Context ctx;
+    ctx.seed = WangHash(WangHash(WangHash(gl_GlobalInvocationID.x) + gl_GlobalInvocationID.y) + kFrameId);
+    ctx.sigma_t_max = kSigmaTMax;
+
+    vec2 uv = (vec2(pos) + 0.5) / vec2(imageSize(display_image));
+    vec3 frag_pos = ProjectiveMul(uInvMVP, vec3(uv, 1.0) * 2.0 - 1.0);
+    vec3 view_dir = normalize(frag_pos - uCameraPos);
+
+    bool has_scattered;
+    float scattered_t;
+    vec4 this_res = Trace(ctx, view_dir, has_scattered, scattered_t);
+    if (has_scattered) {
+        // Apply atmosphere scattering
+        float r = uCameraPos.z + uEarthRadius;
+        float mu = view_dir.z;
+        vec3 atmosphere_transmittance;
+        vec3 atmosphere_luminance = GetAerialPerspective(aerial_perspective_luminance_texture,
+            aerial_perspective_transmittance_texture, uv, scattered_t, r, mu, atmosphere_transmittance);
+        atmosphere_luminance *= SampleRayScatterVisibility(shadow_froxel, uv, scattered_t, uInvShadowFroxelMaxDistance);
+        this_res.rgb = this_res.rgb * atmosphere_transmittance + atmosphere_luminance;
+    }
+
+    vec4 accumulated = imageLoad(accumulating_image, pos) + this_res;
+    imageStore(accumulating_image, pos, vec4(accumulated));
+
+    vec4 color = imageLoad(display_image, pos);
+    vec4 avg_res = accumulated / float(kFrameId);
+    
+    color.rgb = color.rgb * avg_res.a + avg_res.rgb;
+    imageStore(display_image, pos, color);
+}
