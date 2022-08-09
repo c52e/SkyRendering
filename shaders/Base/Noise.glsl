@@ -7,6 +7,13 @@ uint WangHash(uint seed) {
     return seed;
 }
 
+// https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+uint PCGHash(uint seed) {
+    uint state = seed * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
 const vec3 kPerlinGradients[16] = {
     {1, 1, 0}, {-1, 1, 0}, {1, -1, 0}, {-1, -1, 0},
     {1, 0, 1}, {-1, 0, 1}, {1, 0, -1}, {-1, 0, -1},

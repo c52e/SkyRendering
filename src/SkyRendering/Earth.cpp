@@ -28,6 +28,15 @@ Earth::Earth() {
         auto src = ReadWithPreprocessor("../shaders/SkyRendering/EarthRender.frag");
         return GLProgram(kCommonVertexSrc, src.c_str());
     };
+
+    sampler_.Create();
+    glSamplerParameteri(sampler_.id(), GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glSamplerParameteri(sampler_.id(), GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glSamplerParameteri(sampler_.id(), GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glSamplerParameteri(sampler_.id(), GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    float max_texture_max_anisotropy;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &max_texture_max_anisotropy);
+    glSamplerParameterf(sampler_.id(), GL_TEXTURE_MAX_ANISOTROPY, max_texture_max_anisotropy);
 }
 
 void Earth::Update() {
@@ -47,7 +56,7 @@ void Earth::RenderToGBuffer(const Camera& camera, GLuint depth_texture) {
     glBindBufferBase(GL_UNIFORM_BUFFER, 1, buffer_.id());
 
     GLBindTextures({ depth_texture, Textures::Instance().earth_albedo() });
-    GLBindSamplers({ 0u, Samplers::GetAnisotropySampler(Samplers::Wrap::CLAMP_TO_EDGE) });
+    GLBindSamplers({ 0u, sampler_.id() });
 
     glUseProgram(program_.id());
     glDepthFunc(GL_ALWAYS);

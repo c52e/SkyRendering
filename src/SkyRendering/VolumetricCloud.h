@@ -139,10 +139,24 @@ private:
 
     class PathTracing {
     public:
+        enum class PRNG {
+            WangHash,
+            PCGHash
+        };
+
         struct InitParam {
             int max_scattering_order = 8;
             float region_box_half_width = 20.0f;
+            bool importance_sampling = true;
+            float forward_phase_g = 0.85f;
+            float back_phase_g = -0.15f;
+            float forward_scattering_ratio = 0.7f;
+            PRNG prng = PRNG::PCGHash;
         };
+
+        uint32_t frame_cnt() const {
+            return frame_cnt_;
+        }
 
         PathTracing(const VolumetricCloud& cloud, const InitParam& init);
 

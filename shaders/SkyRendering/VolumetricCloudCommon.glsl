@@ -62,6 +62,14 @@ float HenyeyGreenstein(float cos_theta, float g) {
 	return (0.25 * INV_PI) * a / b;
 }
 
+float HenyeyGreensteinInvertcdf(float xi, float g) {
+	float one_plus_g2 = 1.0 + g * g;
+	float one_minus_g2 = 1.0 - g * g;
+	float one_over_2g = 0.5 / g;
+	float t = (one_minus_g2) / (1.0 - g + 2.0 * g * xi);
+	return one_over_2g * (one_plus_g2 - t * t);
+}
+
 vec3 GetSunVisibility(sampler2D transmittance_texture, vec3 pos) {
 	vec3 up_dir = vec3(pos.xy, pos.z + uEarthRadius);
 	float r = length(up_dir);

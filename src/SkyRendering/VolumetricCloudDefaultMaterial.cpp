@@ -140,7 +140,9 @@ void VolumetricCloudDefaultMaterialCommon::DrawGUI() {
 	ImGui::SliderFloat("Cloud Map Repeat Size", &cloud_map_.texture.repeat_size, 0.1f, 100.0f);
 	ImGui::SliderFloat("Detail Repeat Size", &detail_.texture.repeat_size, 0.1f, 100.0f);
 	ImGui::SliderFloat("Displacement Repeat Size", &displacement_.texture.repeat_size, 0.1f, 100.0f);
-	ImGui::SliderFloat("Density", &density_, 0.0f, 50.0f);
+	static float density_slider_max = 100.0f;
+	ImGui::SliderFloat("Density Slider Max", &density_slider_max, 20.0f, 1000.0f);
+	ImGui::SliderFloat("Density", &density_, 0.0f, density_slider_max);
 	ImGui::SliderFloat("Wind Speed", &wind_speed_, 0.0f, 1.0f);
 	ImGui::SliderFloat("Detail Wind Magnify", &detail_wind_magnify_, -1.0f, 5.0f);
 }

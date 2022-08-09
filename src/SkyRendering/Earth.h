@@ -47,4 +47,5 @@ private:
 
     GLBuffer buffer_;
     GLReloadableProgram program_;
+    GLSampler sampler_;
 };

@@ -2,9 +2,9 @@
 
 #include <sstream>
 
-#include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "ImGuiExt.h"
 #include "Textures.h"
 #include "VolumetricCloudDefaultMaterial.h"
 
@@ -426,8 +426,16 @@ void VolumetricCloud::DrawGUI() {
 		path_tracing_.reset();
 	}
 	if (ImGui::TreeNode("Path Tracing Settings")) {
+		if (path_tracing_) {
+			ImGui::Text("Frame Count: %u", path_tracing_->frame_cnt());
+		}
 		ImGui::SliderInt("Max Scattering Order", &path_tracing_init_param_.max_scattering_order, 1, 32);
 		ImGui::SliderFloat("Region Box Half Width", &path_tracing_init_param_.region_box_half_width, 0.0f, 100.0f);
+		ImGui::SliderFloat("Forward Phase G", &path_tracing_init_param_.forward_phase_g, 0.001f, 1.0f);
+		ImGui::SliderFloat("Back Phase G", &path_tracing_init_param_.back_phase_g, -1.0f, 0.001f);
+		ImGui::SliderFloat("Forward Scattering Ratio", &path_tracing_init_param_.forward_scattering_ratio, 0.0f, 1.0f);
+		ImGui::EnumSelect("PRNG", &path_tracing_init_param_.prng);
+		ImGui::Checkbox("Importance Sampling", &path_tracing_init_param_.importance_sampling);
 		ImGui::TreePop();
 	}
 	ImGui::SliderFloat("Bottom Altitude", &bottom_altitude_, 0.0f, 10.0f);
@@ -485,6 +493,11 @@ VolumetricCloud::PathTracing::PathTracing(const VolumetricCloud& cloud, const In
 	additional << "#define kSigmaTMax " << cloud_.material->GetSigmaTMax() << "\n";
 	additional << "#define kMaxScatteringOrder " << init.max_scattering_order << "\n";
 	additional << "#define kCloudHalfWidth " << init.region_box_half_width << "\n";
+	additional << "#define IMPORTANCE_SAMPLING " << (init.importance_sampling ? 1 : 0) << "\n";
+	additional << "#define kForwardPhaseG " << init.forward_phase_g << "\n";
+	additional << "#define kBackPhaseG " << init.back_phase_g << "\n";
+	additional << "#define kForwardScatteringRatio " << init.forward_scattering_ratio << "\n";
+	additional << "#define PRNG " << magic_enum::enum_name(init.prng) << "\n";
 	program_ = {
 		"../shaders/SkyRendering/VolumetricCloudPathTracing.comp",
 		{{16, 8}, {8, 4}, {8, 8}, {16, 4}, {32, 8}, {32, 16}, {32, 32}},

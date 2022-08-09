@@ -24,7 +24,17 @@ vec3 GetEarthAlbedo(sampler2D earth_albedo, vec3 ground_position) {
     float theta = acos(direction.y);
     float phi = atan(direction.x, direction.z);
     vec2 coord = vec2(INV_PI * 0.5 * phi + 0.5, 1.0 - theta * INV_PI);
-    return pow(texture(earth_albedo, coord).xyz, vec3(2.2));
+#if 0
+    vec3 color = texture(earth_albedo, coord).rgb;
+#else
+    // Make the Earth seamless
+    vec2 dudxy1 = vec2(dFdx(coord.x), dFdy(coord.x));
+    vec2 dudxy2 = vec2(dFdx(fract(coord.x + 0.5)), dFdy(fract(coord.x + 0.5)));
+    vec2 dudxy = length(dudxy1) < length(dudxy2) ? dudxy1 : dudxy2;
+    vec2 dvdxy = vec2(dFdx(coord.y), dFdy(coord.y));
+    vec3 color = textureGrad(earth_albedo, coord, vec2(dudxy.x, dvdxy.x), vec2(dudxy.y, dvdxy.y)).rgb;
+#endif
+    return pow(color, vec3(2.2));
 }
 
 void main() {
