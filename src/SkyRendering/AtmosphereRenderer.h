@@ -102,6 +102,10 @@ public:
             , aerial_perspective_lut_max_distance_ };
     }
 
+    GLuint environment_luminance_texture() const {
+        return environment_luminance_texture_.id();
+    }
+
 private:
     glm::vec3 sun_direction_{};
     float aerial_perspective_lut_max_distance_{};
@@ -116,8 +120,10 @@ private:
     GLTexture sky_view_transmittance_texture_;
     GLTexture aerial_perspective_luminance_texture_;
     GLTexture aerial_perspective_transmittance_texture_;
+    GLTexture environment_luminance_texture_;
 
     GLReloadableComputeProgram sky_view_program_;
     GLReloadableComputeProgram aerial_perspective_program_;
+    GLReloadableComputeProgram environment_luminance_program_;
     GLReloadableProgram render_program_;
 };

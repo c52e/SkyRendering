@@ -250,6 +250,7 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	atmosphere_transmittance_tex_ = earth.atmosphere().transmittance_texture();
 	aerial_perspective_luminance_tex_ = aerial_perspective.luminance_tex;
 	aerial_perspective_transmittance_tex_ = aerial_perspective.transmittance_tex;
+	environment_luminance_tex_ = atmosphere_render.environment_luminance_texture();
 
 
 	VolumetricCloudBufferData buffer;
@@ -429,12 +430,13 @@ void VolumetricCloud::DrawGUI() {
 		if (path_tracing_) {
 			ImGui::Text("Frame Count: %u", path_tracing_->frame_cnt());
 		}
-		ImGui::SliderInt("Max Scattering Order", &path_tracing_init_param_.max_scattering_order, 1, 32);
-		ImGui::SliderFloat("Region Box Half Width", &path_tracing_init_param_.region_box_half_width, 0.0f, 100.0f);
+		ImGui::SliderInt("Max Bounces", &path_tracing_init_param_.max_bounces, 1, 32);
+		ImGui::SliderFloat("Region Box Half Width", &path_tracing_init_param_.region_box_half_width, 0.0f, 200.0f);
 		ImGui::SliderFloat("Forward Phase G", &path_tracing_init_param_.forward_phase_g, 0.001f, 1.0f);
 		ImGui::SliderFloat("Back Phase G", &path_tracing_init_param_.back_phase_g, -1.0f, 0.001f);
 		ImGui::SliderFloat("Forward Scattering Ratio", &path_tracing_init_param_.forward_scattering_ratio, 0.0f, 1.0f);
 		ImGui::EnumSelect("PRNG", &path_tracing_init_param_.prng);
+		ImGui::EnumSelect("Environment Lighting", &path_tracing_init_param_.environment_lighting);
 		ImGui::Checkbox("Importance Sampling", &path_tracing_init_param_.importance_sampling);
 		ImGui::TreePop();
 	}
@@ -491,13 +493,19 @@ VolumetricCloud::PathTracing::PathTracing(const VolumetricCloud& cloud, const In
 
 	std::stringstream additional;
 	additional << "#define kSigmaTMax " << cloud_.material->GetSigmaTMax() << "\n";
-	additional << "#define kMaxScatteringOrder " << init.max_scattering_order << "\n";
+	additional << "#define kMaxBounces " << init.max_bounces << "\n";
 	additional << "#define kCloudHalfWidth " << init.region_box_half_width << "\n";
 	additional << "#define IMPORTANCE_SAMPLING " << (init.importance_sampling ? 1 : 0) << "\n";
 	additional << "#define kForwardPhaseG " << init.forward_phase_g << "\n";
 	additional << "#define kBackPhaseG " << init.back_phase_g << "\n";
 	additional << "#define kForwardScatteringRatio " << init.forward_scattering_ratio << "\n";
 	additional << "#define PRNG " << magic_enum::enum_name(init.prng) << "\n";
+	additional << "#define ENVIRONMENT_LIGHT_" << magic_enum::enum_name(init.environment_lighting) << "\n";
+	const auto& m = cloud_.model_;
+	additional << "#define kModelMatrix3 mat3("
+		<< cloud_.model_[0][0] << "," << cloud_.model_[0][1] << "," << cloud_.model_[0][2] << ","
+		<< cloud_.model_[1][0] << "," << cloud_.model_[1][1] << "," << cloud_.model_[1][2] << ","
+		<< cloud_.model_[2][0] << "," << cloud_.model_[2][1] << "," << cloud_.model_[2][2] << ")";
 	program_ = {
 		"../shaders/SkyRendering/VolumetricCloudPathTracing.comp",
 		{{16, 8}, {8, 4}, {8, 8}, {16, 4}, {32, 8}, {32, 16}, {32, 32}},
@@ -511,11 +519,13 @@ void VolumetricCloud::PathTracing::Render(GLuint hdr_texture) {
 	GLBindTextures({ cloud_.atmosphere_transmittance_tex_,
 					cloud_.aerial_perspective_luminance_tex_,
 					cloud_.aerial_perspective_transmittance_tex_,
-					cloud_.GetShadowFroxel().shadow_froxel });
+					cloud_.GetShadowFroxel().shadow_froxel,
+					cloud_.environment_luminance_tex_ });
 	GLBindSamplers({ Samplers::GetLinearNoMipmapClampToEdge(),
 					Samplers::GetLinearNoMipmapClampToEdge(),
 					Samplers::GetLinearNoMipmapClampToEdge(),
-					cloud_.GetShadowFroxel().sampler });
+					cloud_.GetShadowFroxel().sampler,
+					Samplers::GetAnisotropySampler(Samplers::Wrap::CLAMP_TO_EDGE) });
 	GLBindImageTextures({ accumulating_texture_.id(),
 						hdr_texture });
 	cloud_.material->Bind();

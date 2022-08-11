@@ -96,11 +96,11 @@ void GetCosLatLonFromSkyViewTextureIndex(ivec2 index, float r, out float cos_lat
 }
 
 vec3 GetViewDirectionFromCosLatLon(float cos_lat, float cos_lon) {
-    float sin_lat = sqrt(1 - cos_lat * cos_lat);
-    float sin_lon = sqrt(1 - cos_lon * cos_lon);
+    float sin_lat = clamp(sqrt(1 - cos_lat * cos_lat), 0, 1);
+    float sin_lon = clamp(sqrt(1 - cos_lon * cos_lon), 0, 1);
     vec3 view_direction = up_direction * cos_lat +
-        front_direction * sin_lat * cos_lon +
-        right_direction * sin_lat * sin_lon;
+        front_direction * (sin_lat * cos_lon) +
+        right_direction * (sin_lat * sin_lon);
     return view_direction;
 }
 
@@ -128,12 +128,12 @@ vec2 GetSkyViewTextureUvFromCosLatLon(float r, float cos_lat, float cos_lon) {
 void GetCosLatLonFromViewDirection(vec3 view_direction, out float cos_lat, out float cos_lon) {
     cos_lat = dot(up_direction, view_direction);
     vec3 lon_direction = view_direction - up_direction * cos_lat;
-    float lon_direction_length = length(lon_direction);
-    if (lon_direction_length == 0) {
+    float lon_direction_length2 = dot(lon_direction, lon_direction);
+    if (lon_direction_length2 == 0) {
         cos_lon = 1;
     }
     else {
-        lon_direction /= lon_direction_length;
+        lon_direction *= inversesqrt(lon_direction_length2);
         cos_lon = dot(lon_direction, front_direction);
     }
 }
@@ -238,6 +238,35 @@ void main() {
 
 #endif
 
+
+#ifdef ENVIRONMENT_LUMINANCE_COMPUTE_PROGRAM
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = LOCAL_SIZE_Z) in;
+layout(binding = 0, rgba16f) uniform imageCube env_luminance_image;
+
+void main() {
+    int index = int(gl_GlobalInvocationID.z);
+    vec2 face_uv = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / vec2(imageSize(env_luminance_image));
+    face_uv.y = 1.0 - face_uv.y;
+    vec3 view_direction = ConvertCubUvToDir(index, face_uv);
+    float cos_lat, cos_lon;
+    GetCosLatLonFromViewDirection(view_direction, cos_lat, cos_lon);
+    float r = camera_earth_center_distance;
+    vec2 uv = GetSkyViewTextureUvFromCosLatLon(r, cos_lat, cos_lon);
+    vec3 luminance = texture(sky_view_luminance_texture, uv).rgb;
+    vec3 transmittance = texture(sky_view_transmittance_texture, uv).rgb;
+
+    float mu = cos_lat;
+    if (RayIntersectsGround(r, mu)) {
+        float marching_distance = DistanceToBottomAtmosphereBoundary(r, mu);
+        vec3 ground_position = camera_position + view_direction * marching_distance;
+        luminance += ComputeGroundLuminance(transmittance_texture, earth_center, ground_position, sun_direction) * transmittance;
+    }
+
+    imageStore(env_luminance_image, ivec3(gl_GlobalInvocationID.xyz), vec4(luminance, 0.0));
+}
+
+#endif
 
 #ifdef ATMOSPHERE_RENDER_FRAGMENT_SHADER
 

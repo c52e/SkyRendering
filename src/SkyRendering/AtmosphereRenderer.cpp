@@ -9,6 +9,7 @@
 #include "Samplers.h"
 #include "ScreenRectangle.h"
 #include "VolumetricCloud.h"
+#include "ImageLoader.h"
 
 constexpr GLsizei kSkyViewTextureWidth = 128;
 constexpr GLsizei kSkyViewTextureHeight = 128;
@@ -17,6 +18,8 @@ constexpr GLenum kSkyViewTextureInternalFormat = GL_RGBA32F;
 constexpr GLsizei kAerialPerspectiveTextureWidth = 32;
 constexpr GLsizei kAerialPerspectiveTextureHeight = 32;
 constexpr GLenum kAerialPerspectiveTextureInternalFormat = GL_RGBA32F;
+
+constexpr GLsizei kEnvironmentLuminanceTextureWidth = 128;
 
 struct AtmosphereRenderBufferData {
     glm::vec3 sun_direction;
@@ -134,6 +137,19 @@ AtmosphereRenderer::AtmosphereRenderer(const AtmosphereRenderInitParameters& ini
     glTextureStorage3D(aerial_perspective_transmittance_texture_.id(), 1, kAerialPerspectiveTextureInternalFormat,
         kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, aerial_perspective_lut_depth_);
 
+    environment_luminance_program_ = {
+        "../shaders/SkyRendering/AtmosphereRenderer.glsl",
+        {{8, 4, 1}, {8, 8, 1}, {16, 4, 1}, {16, 8, 1}},
+        [generate_shader_header](const std::string& src) {
+            return generate_shader_header("#define ENVIRONMENT_LUMINANCE_COMPUTE_PROGRAM\n", true) + src;
+        },
+    };
+
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    environment_luminance_texture_.Create(GL_TEXTURE_CUBE_MAP);
+    constexpr auto w = kEnvironmentLuminanceTextureWidth;
+    glTextureStorage2D(environment_luminance_texture_.id(), GetMipmapLevels(w, w), GL_RGBA16F, w, w);
+
     render_program_ = [generate_shader_header, dither = init_parameters.raymarching_dither_sample_point_enable]() {
         auto atmosphere_render_fragment_str = generate_shader_header(
             "#define ATMOSPHERE_RENDER_FRAGMENT_SHADER\n", dither)
@@ -190,7 +206,7 @@ void AtmosphereRenderer::Render(const Earth& earth, const VolumetricCloud& volum
                     cloud_shadow_map.sampler,
                     cloud_shadow_froxel.sampler, });
 
-    if (use_sky_view_lut_) {
+    if (true) { // For environment luminance texture
         PERF_MARKER("SkyViewLut")
         GLBindImageTextures({ sky_view_luminance_texture_.id(), sky_view_transmittance_texture_.id() });
         glUseProgram(sky_view_program_.id());
@@ -202,6 +218,13 @@ void AtmosphereRenderer::Render(const Earth& earth, const VolumetricCloud& volum
         GLBindImageTextures({ aerial_perspective_luminance_texture_.id(), aerial_perspective_transmittance_texture_.id() });
         glUseProgram(aerial_perspective_program_.id());
         aerial_perspective_program_.Dispatch({ kAerialPerspectiveTextureWidth, kAerialPerspectiveTextureHeight, aerial_perspective_lut_depth_ });
+    }
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+    {
+        PERF_MARKER("EnvironmentLuminance")
+        GLBindImageTextures({ environment_luminance_texture_.id() });
+        glUseProgram(environment_luminance_program_.id());
+        environment_luminance_program_.Dispatch({ kEnvironmentLuminanceTextureWidth, kEnvironmentLuminanceTextureWidth, 6 });
     }
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     {

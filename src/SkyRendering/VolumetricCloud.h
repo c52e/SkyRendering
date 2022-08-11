@@ -135,7 +135,7 @@ private:
     GLuint atmosphere_transmittance_tex_ = 0;
     GLuint aerial_perspective_luminance_tex_ = 0;
     GLuint aerial_perspective_transmittance_tex_ = 0;
-
+    GLuint environment_luminance_tex_ = 0;
 
     class PathTracing {
     public:
@@ -144,14 +144,22 @@ private:
             PCGHash
         };
 
+        enum class EnvironmentLighting {
+            OFF,
+            CONST_ENVIRONMENT_MAP,
+            GROUND_SINGLE_BOUNCE,
+            GROUND_MULTI_BOUNCE,
+        };
+
         struct InitParam {
-            int max_scattering_order = 8;
-            float region_box_half_width = 20.0f;
+            int max_bounces = 16;
+            float region_box_half_width = 100.0f;
             bool importance_sampling = true;
             float forward_phase_g = 0.85f;
             float back_phase_g = -0.15f;
             float forward_scattering_ratio = 0.7f;
             PRNG prng = PRNG::PCGHash;
+            EnvironmentLighting environment_lighting = EnvironmentLighting::GROUND_MULTI_BOUNCE;
         };
 
         uint32_t frame_cnt() const {

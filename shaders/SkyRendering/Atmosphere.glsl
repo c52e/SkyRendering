@@ -210,7 +210,7 @@ float GetVisibilityFromMoonShadow(float sun_moon_angular_distance,
 }
 
 float GetVisibilityFromMoonShadow(vec3 moon_vector, float moon_radius, vec3 sun_direction) {
-    float inv_moon_distance = 1.0 / length(moon_vector);
+    float inv_moon_distance = inversesqrt(dot(moon_vector, moon_vector));
     vec3 moon_direction = moon_vector * inv_moon_distance;
     float moon_angular_radius = asin(clamp(moon_radius * inv_moon_distance, -1, 1));
     return GetVisibilityFromMoonShadow(acos(clamp(dot(sun_direction, moon_direction), -1, 1)),
@@ -294,11 +294,7 @@ vec3 ComputeScatteredLuminance(sampler2D transmittance_texture
     return luminance;
 }
 
-vec3 ComputeGroundLuminance(sampler2D transmittance_texture, vec3 earth_center, vec3 position, vec3 sun_direction
-#ifndef MULTISCATTERING_COMPUTE_PROGRAM
-    , vec3 ground_albedo
-#endif
-) {
+vec3 ComputeGroundLuminance(sampler2D transmittance_texture, vec3 earth_center, vec3 position, vec3 sun_direction) {
     vec3 up_direction = normalize(position - earth_center);
     float mu_s = dot(sun_direction, up_direction);
     vec3 solar_illuminance_at_ground = GetSunVisibility(transmittance_texture, bottom_radius, mu_s);
@@ -306,7 +302,7 @@ vec3 ComputeGroundLuminance(sampler2D transmittance_texture, vec3 earth_center, 
     solar_illuminance_at_ground *= solar_illuminance;
 #endif
     vec3 normal = normalize(position - earth_center);
-    return solar_illuminance_at_ground * max(dot(normal, sun_direction), 0) * ground_albedo * INV_PI;
+    return INV_PI * clamp(dot(normal, sun_direction), 0, 1) * ground_albedo * solar_illuminance_at_ground;
 }
 
 
@@ -349,12 +345,10 @@ vec3 GetDirectionFromLocalIndex(int index) {
     float unit_theta = (0.5 + float(index / 8)) / 8.0;
     float unit_phi = (0.5 + float(index % 8)) / 8.0;
     // Uniformly sample on a sphere
-    unit_theta = unit_theta * 2.0 - 1.0;
-    unit_theta = sign(unit_theta) * (1 - sqrt(abs(unit_theta))) * 0.5 + 0.5; // acos(1-x)/(0.5*PI) approximately equals sqrt(x)
-    float theta = PI * unit_theta;
+    float cos_theta = 1.0 - 2.0 * unit_theta;
+    float sin_theta = sqrt(clamp(1.0 - cos_theta * cos_theta, 0, 1));
+
     float phi = 2 * PI * unit_phi;
-    float cos_theta = cos(theta);
-    float sin_theta = sin(theta);
     float cos_phi = cos(phi);
     float sin_phi = sin(phi);
     return vec3(cos_phi * sin_theta, cos_theta, sin_phi * sin_theta);
