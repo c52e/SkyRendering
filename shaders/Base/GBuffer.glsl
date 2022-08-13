@@ -30,7 +30,7 @@ layout(binding = 0) uniform sampler2D albedo_texture;
 layout(binding = 1) uniform sampler2D orm_texture;
 layout(binding = 2) uniform sampler2D normal_texture;
 void main() {
-	vec3 albedo = albedo_factor * pow(texture(albedo_texture, vUv).xyz, vec3(2.2));
+	vec3 albedo = albedo_factor * texture(albedo_texture, vUv).rgb;
 	vec3 orm = texture(orm_texture, vUv).xyz;
 	Albedo = vec4(albedo, 1.0);
 	vec3 tangent_normal = texture(normal_texture, vUv).xyz * 2.0 - 1.0;

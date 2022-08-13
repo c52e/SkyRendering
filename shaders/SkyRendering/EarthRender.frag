@@ -34,7 +34,7 @@ vec3 GetEarthAlbedo(sampler2D earth_albedo, vec3 ground_position) {
     vec2 dvdxy = vec2(dFdx(coord.y), dFdy(coord.y));
     vec3 color = textureGrad(earth_albedo, coord, vec2(dudxy.x, dvdxy.x), vec2(dudxy.y, dvdxy.y)).rgb;
 #endif
-    return pow(color, vec3(2.2));
+    return color;
 }
 
 void main() {

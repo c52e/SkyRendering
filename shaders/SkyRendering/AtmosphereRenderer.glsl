@@ -318,7 +318,7 @@ vec3 GetStarLuminance(sampler2D star_luminance, vec3 view_direction) {
     float theta = acos(view_direction.y);
     float phi = atan(view_direction.x, view_direction.z);
     vec2 coord = vec2(INV_PI * 0.5 * phi + 0.5, 1.0 - theta * INV_PI);
-    return star_luminance_scale * pow(texture(star_luminance, coord).xyz, vec3(2.2));
+    return star_luminance_scale * texture(star_luminance, coord).rgb;
 }
 
 float SampleVisibilityFromShadowMap(vec3 position) {

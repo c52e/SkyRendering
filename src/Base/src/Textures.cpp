@@ -27,7 +27,7 @@ Textures::Textures() {
         auto data = stbi_load_unique("../data/NASA/lroc_color_poles_2k.jpg", &x, &y, &n, 0);
 
         moon_albedo_.Create(GL_TEXTURE_2D);
-        glTextureStorage2D(moon_albedo_.id(), GetMipmapLevels(x, y), GL_RGB8, x, y);
+        glTextureStorage2D(moon_albedo_.id(), GetMipmapLevels(x, y), GL_SRGB8, x, y);
         glTextureSubImage2D(moon_albedo_.id(), 0, 0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
     }
     glGenerateTextureMipmap(moon_albedo_.id());
@@ -43,7 +43,7 @@ Textures::Textures() {
         auto data = stbi_load_unique("../data/NASA/starmap_2020_4k.jpg", &x, &y, &n, 0);
 
         star_luminance_.Create(GL_TEXTURE_2D);
-        glTextureStorage2D(star_luminance_.id(), GetMipmapLevels(x, y), GL_RGB8, x, y);
+        glTextureStorage2D(star_luminance_.id(), GetMipmapLevels(x, y), GL_SRGB8, x, y);
         glTextureSubImage2D(star_luminance_.id(), 0, 0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
     }
     glGenerateTextureMipmap(star_luminance_.id());
@@ -51,7 +51,7 @@ Textures::Textures() {
         auto data = stbi_load_unique("../data/NASA/world.topo.bathy.200401.3x5400x2700.jpg", &x, &y, &n, 0);
 
         earth_albedo_.Create(GL_TEXTURE_2D);
-        glTextureStorage2D(earth_albedo_.id(), GetMipmapLevels(x, y), GL_RGB8, x, y);
+        glTextureStorage2D(earth_albedo_.id(), GetMipmapLevels(x, y), GL_SRGB8, x, y);
         glTextureSubImage2D(earth_albedo_.id(), 0, 0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
     }
     glGenerateTextureMipmap(earth_albedo_.id());

@@ -11,7 +11,8 @@ layout(binding = 3) uniform sampler3D shadow_froxel;
 layout(binding = 4) uniform samplerCube environment_luminance_texture;
 
 layout(binding = 0, rgba32f) uniform image2D accumulating_image;
-layout(binding = 1, rgba16f) uniform image2D display_image;
+layout(binding = 1, r8ui) uniform uimage2D rendered_mask_image;
+layout(binding = 2, rgba16f) uniform image2D display_image;
 
 layout(location = 0) uniform uint kFrameId;
 
@@ -268,10 +269,16 @@ vec4 Trace(inout Context ctx, vec3 view_dir, out bool has_scattered, out float s
     return vec4(L, has_scattered ? 0.0 : 1.0);
 }
 
+#ifndef DISPLAY_PASS
+
+layout(location = 1) uniform ivec4 kRenderRegion;
+
 void main() {
-    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy) + kRenderRegion.xy;
+    if (pos.x >= kRenderRegion.z || pos.y >= kRenderRegion.w)
+        return;
     Context ctx;
-    ctx.seed = PRNG(PRNG(PRNG(gl_GlobalInvocationID.x) + gl_GlobalInvocationID.y) + kFrameId);
+    ctx.seed = PRNG(PRNG(PRNG(uint(pos.x)) + uint(pos.y)) + kFrameId);
     ctx.sigma_t_max = kSigmaTMax;
 
     vec2 uv = (vec2(pos) + 0.5) / vec2(imageSize(display_image));
@@ -294,10 +301,19 @@ void main() {
 
     vec4 accumulated = imageLoad(accumulating_image, pos) + this_res;
     imageStore(accumulating_image, pos, vec4(accumulated));
+    imageStore(rendered_mask_image, pos, uvec4(1));
+}
 
+#else
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec4 accumulated = imageLoad(accumulating_image, pos);
     vec4 color = imageLoad(display_image, pos);
-    vec4 avg_res = accumulated / float(kFrameId);
-    
+    bool is_rendered = imageLoad(rendered_mask_image, pos).r != 0;
+    vec4 avg_res = accumulated / float(is_rendered ? kFrameId : kFrameId - 1);
     color.rgb = color.rgb * avg_res.a + avg_res.rgb;
     imageStore(display_image, pos, color);
 }
+
+#endif

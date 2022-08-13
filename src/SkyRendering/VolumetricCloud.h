@@ -152,7 +152,8 @@ private:
         };
 
         struct InitParam {
-            int max_bounces = 16;
+            int sqrt_tile_count = 1;
+            int max_bounces = 128;
             float region_box_half_width = 100.0f;
             bool importance_sampling = true;
             float forward_phase_g = 0.85f;
@@ -171,11 +172,17 @@ private:
         void Render(GLuint hdr_texture);
 
     private:
+        glm::ivec4 GetRenderRegion() const;
+
         const VolumetricCloud& cloud_;
 
-        GLReloadableComputeProgram program_;
+        GLReloadableComputeProgram render_program_;
+        GLReloadableComputeProgram display_program_;
         GLTexture accumulating_texture_;
+        GLTexture rendered_mask_;
         uint32_t frame_cnt_ = 0;
+        const int sqrt_tile_count_;
+        int tile_index_ = 0;
     };
     std::unique_ptr<PathTracing> path_tracing_;
     PathTracing::InitParam path_tracing_init_param_;
