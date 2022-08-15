@@ -21,5 +21,5 @@ Build and run.
 ![screenshot1](https://c52e.github.io/SkyRendering/data/screenshot4.jpg)
 ![screenshot2](https://c52e.github.io/SkyRendering/data/screenshot2.jpg)
 ![screenshot3](https://c52e.github.io/SkyRendering/data/screenshot3.jpg)
-[video](https://c52e.github.io/SkyRendering/data/godray.mp4)
+[video](https://c52e.github.io/SkyRendering/data/godray.mp4) (higher quality than gif)  
 ![godray](https://github.com/c52e/SkyRendering/blob/gh-pages/data/godray.gif)
