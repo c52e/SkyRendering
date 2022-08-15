@@ -10,6 +10,7 @@
     <ClCompile Include="IVolumetricCloudMaterial.cpp" />
     <ClCompile Include="VolumetricCloudDefaultMaterial.cpp" />
     <ClCompile Include="VolumetricCloudMinimalMaterial.cpp" />
+    <ClCompile Include="VolumetricCloudVoxelMaterial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">
@@ -25,6 +26,7 @@
     <ClInclude Include="IVolumetricCloudMaterial.h" />
     <ClInclude Include="VolumetricCloudDefaultMaterial.h" />
     <ClInclude Include="VolumetricCloudMinimalMaterial.h" />
+    <ClInclude Include="VolumetricCloudVoxelMaterial.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\shaders\SkyRendering\Atmosphere.glsl">
@@ -91,6 +93,9 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudPathTracing.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialVoxel.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

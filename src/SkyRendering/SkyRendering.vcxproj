@@ -20,6 +20,7 @@
     <ClCompile Include="VolumetricCloud.cpp" />
     <ClCompile Include="VolumetricCloudDefaultMaterial.cpp" />
     <ClCompile Include="VolumetricCloudMinimalMaterial.cpp" />
+    <ClCompile Include="VolumetricCloudVoxelMaterial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppWindow.h" />
@@ -30,6 +31,7 @@
     <ClInclude Include="VolumetricCloud.h" />
     <ClInclude Include="VolumetricCloudDefaultMaterial.h" />
     <ClInclude Include="VolumetricCloudMinimalMaterial.h" />
+    <ClInclude Include="VolumetricCloudVoxelMaterial.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\external\glad\glad.vcxproj">
@@ -68,6 +70,7 @@
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowMap.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudShadowMapBlur.comp" />
     <None Include="..\..\shaders\SkyRendering\VolumetricCloudUpscale.comp" />
+    <None Include="..\..\shaders\SkyRendering\VolumetricCloudMaterialVoxel.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

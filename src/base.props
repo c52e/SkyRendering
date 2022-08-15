@@ -5,7 +5,7 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <ClCompile>
-      <PreprocessorDefinitions>PI=3.14159265358979323846;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PI=3.14159265358979323846;_USE_MATH_DEFINES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)external\glad\include;$(SolutionDir)external\glfw\include;$(SolutionDir)external\imgui\include;$(SolutionDir)external\glm;$(SolutionDir)external\stb;$(SolutionDir)external\magic_enum\include;$(SolutionDir)external\cppreflection\include;$(SolutionDir)external\rapidjson\include;$(SolutionDir)src\Base\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>

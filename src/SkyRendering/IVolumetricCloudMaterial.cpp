@@ -2,9 +2,11 @@
 
 #include "VolumetricCloudDefaultMaterial.h"
 #include "VolumetricCloudMinimalMaterial.h"
+#include "VolumetricCloudVoxelMaterial.h"
 
 SUBCLASS_DECLARATION_BEGIN(IVolumetricCloudMaterial)
 SUBCLASS_DECLARATION(VolumetricCloudDefaultMaterial0)
 SUBCLASS_DECLARATION(VolumetricCloudDefaultMaterial1)
 SUBCLASS_DECLARATION(VolumetricCloudMinimalMaterial)
+SUBCLASS_DECLARATION(VolumetricCloudVoxelMaterial)
 SUBCLASS_DECLARATION_END()
