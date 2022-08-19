@@ -516,6 +516,7 @@ void AppWindow::HandleDrawGuiEvent() {
         ImGui::Image((void*)(intptr_t)gbuffer_->orm(), ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
         ImGui::Image((void*)(intptr_t)gbuffer_->depth_stencil(), ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
         ImGui::Image((void*)(intptr_t)shadow_map_->depth_texture(), ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::Image((void*)(intptr_t)Textures::Instance().env_brdf_lut(), ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
         ImGui::End();
     }
 

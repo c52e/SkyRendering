@@ -1,0 +1,85 @@
+#version 460
+
+layout(local_size_x = 1, local_size_y = 1024) in;
+
+layout(binding = 0) uniform samplerCube env_radiance_texture;
+
+layout(std430, binding = 0) buffer OutputL {
+    vec4 Llm[9];
+};
+
+#include "Common.glsl"
+
+// https://cseweb.ucsd.edu/~ravir/papers/envmap/envmap.pdf
+// https://www.shadertoy.com/view/3tlBW7
+
+// First 9 spherical harmonics coefficients from equation 3 in [1]
+const float Y00 = 0.282095;
+const float Y1n = 0.488603; // 3 direction dependent values
+const float Y2n = 1.092548; // 3 direction dependent values
+const float Y20 = 0.315392;
+const float Y22 = 0.546274;
+
+shared vec3 Llm_local[1024];
+
+vec3 GetDirectionFromLocalIndex(int index) {
+    float unit_theta = (0.5 + float(index >> 5)) / 32.0;
+    float unit_phi = (0.5 + float(index & 0x1f)) / 32.0;
+    // Uniformly sample on a sphere
+    float cos_theta = 1.0 - 2.0 * unit_theta;
+    float sin_theta = sqrt(clamp(1.0 - cos_theta * cos_theta, 0, 1));
+
+    float phi = 2 * PI * unit_phi;
+    float cos_phi = cos(phi);
+    float sin_phi = sin(phi);
+    return vec3(cos_phi * sin_theta, cos_theta, sin_phi * sin_theta);
+}
+
+void main() {
+    int index = int(gl_GlobalInvocationID.x);
+    int local_index = int(gl_GlobalInvocationID.y);
+
+    vec3 dir = GetDirectionFromLocalIndex(local_index);
+    vec3 radiance = textureLod(env_radiance_texture, dir, 0).rgb;
+    float coeff[9] = {Y00, Y1n * dir.y, Y1n * dir.z, Y1n * dir.x, Y2n * dir.x * dir.y,  Y2n * dir.y * dir.z
+            , Y20 * (3.0 * dir.z * dir.z - 1.0), Y2n * dir.x * dir.z, Y22 * (dir.x * dir.x - dir.y * dir.y)};
+    vec3 L = radiance * (coeff[index] * (4.0 * PI / 1024.0));
+
+    Llm_local[local_index] = L;
+    
+    barrier();
+    if (local_index < 512)
+        Llm_local[local_index] += Llm_local[local_index + 512];
+    barrier();
+    if (local_index < 256)
+        Llm_local[local_index] += Llm_local[local_index + 256];
+    barrier();
+    if (local_index < 128)
+        Llm_local[local_index] += Llm_local[local_index + 128];
+    barrier();
+    if (local_index < 64)
+        Llm_local[local_index] += Llm_local[local_index + 64];
+    barrier();
+    if (local_index < 32)
+        Llm_local[local_index] += Llm_local[local_index + 32];
+    barrier();
+    if (local_index < 16)
+        Llm_local[local_index] += Llm_local[local_index + 16];
+    barrier();
+    if (local_index < 8)
+        Llm_local[local_index] += Llm_local[local_index + 8];
+    barrier();
+    if (local_index < 4)
+        Llm_local[local_index] += Llm_local[local_index + 4];
+    barrier();
+    if (local_index < 2)
+        Llm_local[local_index] += Llm_local[local_index + 2];
+    barrier();
+    if (local_index < 1)
+        Llm_local[local_index] += Llm_local[local_index + 1];
+    barrier();
+    if (local_index > 0)
+        return;
+
+    Llm[index] = vec4(Llm_local[0], 0); // a is not used
+}

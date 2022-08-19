@@ -94,7 +94,9 @@
     <ClInclude Include="include\GLReloadableProgram.h" />
     <ClInclude Include="include\GLWindow.h" />
     <ClInclude Include="include\HDRBuffer.h" />
+    <ClInclude Include="include\IBL.h" />
     <ClInclude Include="include\ImageLoader.h" />
+    <ClInclude Include="include\ImageWriter.h" />
     <ClInclude Include="include\ImGuiExt.h" />
     <ClInclude Include="include\Mesh.h" />
     <ClInclude Include="include\MeshObject.h" />
@@ -116,7 +118,8 @@
     <ClCompile Include="src\GLReloadableProgram.cpp" />
     <ClCompile Include="src\GLWindow.cpp" />
     <ClCompile Include="src\HDRBuffer.cpp" />
-    <ClCompile Include="src\ImageLoader.cpp" />
+    <ClCompile Include="src\IBL.cpp" />
+    <ClCompile Include="src\StbImage.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\MeshObject.cpp" />
     <ClCompile Include="src\Samplers.cpp" />
@@ -131,9 +134,13 @@
     <None Include="..\..\shaders\Base\BloomPass2.frag" />
     <None Include="..\..\shaders\Base\Blur.glsl" />
     <None Include="..\..\shaders\Base\BRDF.glsl" />
+    <None Include="..\..\shaders\Base\Common.glsl" />
+    <None Include="..\..\shaders\Base\EnvBRDFLut.comp" />
+    <None Include="..\..\shaders\Base\EnvRadianceSH.comp" />
     <None Include="..\..\shaders\Base\ExtractColor.frag" />
     <None Include="..\..\shaders\Base\GBuffer.glsl" />
     <None Include="..\..\shaders\Base\Noise.glsl" />
+    <None Include="..\..\shaders\Base\PrefilterRadiance.comp" />
     <None Include="..\..\shaders\Base\SMAA\BlendingWeightCalculation.glsl" />
     <None Include="..\..\shaders\Base\SMAA\EdgeDetection.glsl" />
     <None Include="..\..\shaders\Base\SMAA\NeighborhoodBlending.glsl" />

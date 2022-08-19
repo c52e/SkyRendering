@@ -11,11 +11,7 @@
 
 #include "PerformanceMarker.h"
 #include "Utils.h"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define sprintf sprintf_s
-#include <stb_image_write.h>
-#undef sprintf
+#include "ImageWriter.h"
 
 GLWindow::GLWindow(const char* name, int width, int height, bool vsync) {
     SetCurrentDirToExe(); // 切换到exe所在目录
@@ -252,7 +248,6 @@ void GLWindow::ScreenShot(const char* path) {
     auto [width, height] = GetWindowSize();
     auto pixels = std::make_unique<std::byte[]>(width * height * 3);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.get());
-    stbi_flip_vertically_on_write(true);
     stbi_write_png(path, width, height, 3, pixels.get(), width * 3);
 }
 

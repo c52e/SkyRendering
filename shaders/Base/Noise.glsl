@@ -99,3 +99,19 @@ float WorleyNoise(vec3 p, uint freq, uint seed) {
     }
     return min_dist;
 }
+
+// UE4
+uint ReverseBits32(uint bits) {
+    bits = (bits << 16) | (bits >> 16);
+    bits = ((bits & 0x00ff00ff) << 8) | ((bits & 0xff00ff00) >> 8);
+    bits = ((bits & 0x0f0f0f0f) << 4) | ((bits & 0xf0f0f0f0) >> 4);
+    bits = ((bits & 0x33333333) << 2) | ((bits & 0xcccccccc) >> 2);
+    bits = ((bits & 0x55555555) << 1) | ((bits & 0xaaaaaaaa) >> 1);
+    return bits;
+}
+
+vec2 Hammersley(uint Index, uint NumSamples, uvec2 Random) {
+    float E1 = fract(float(Index) / NumSamples + float(Random.x & 0xffff) / (1 << 16));
+    float E2 = float(ReverseBits32(Index) ^ Random.y) * 2.3283064365386963e-10;
+    return vec2(E1, E2);
+}

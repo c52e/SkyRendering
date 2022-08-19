@@ -35,6 +35,10 @@ public:
 		return earth_albedo_.id();
 	}
 
+	GLuint env_brdf_lut() const {
+		return env_brdf_lut_.id();
+	}
+
 private:
 	Textures();
 
@@ -45,6 +49,7 @@ private:
 	GLTexture moon_normal_;
 	GLTexture star_luminance_;
 	GLTexture earth_albedo_;
+	GLTexture env_brdf_lut_;
 };
 
 
