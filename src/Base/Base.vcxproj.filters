@@ -64,6 +64,12 @@
     <ClInclude Include="include\SMAA.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\ImageWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\IBL.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Camera.cpp">
@@ -81,7 +87,7 @@
     <ClCompile Include="src\HDRBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ImageLoader.cpp">
+    <ClCompile Include="src\StbImage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Mesh.cpp">
@@ -109,6 +115,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\SMAA.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IBL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -156,6 +165,18 @@
     </None>
     <None Include="..\..\shaders\Base\SMAA\NeighborhoodBlending.glsl">
       <Filter>shaders\SMAA</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\EnvBRDFLut.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\Common.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\PrefilterRadiance.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\..\shaders\Base\EnvRadianceSH.comp">
+      <Filter>shaders</Filter>
     </None>
   </ItemGroup>
 </Project>

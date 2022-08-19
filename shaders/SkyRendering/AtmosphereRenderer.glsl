@@ -19,6 +19,8 @@ layout(binding = 12) uniform sampler3D aerial_perspective_transmittance_texture;
 layout(binding = 13) uniform sampler2D shadow_map_depth_sampler;
 layout(binding = 14) uniform sampler2D cloud_shadow_map;
 layout(binding = 15) uniform sampler3D cloud_shadow_froxel;
+layout(binding = 16) uniform samplerCube prefiltered_radiance_texture;
+layout(binding = 17) uniform sampler2D env_brdf_lut;
 
 layout(std140, binding = 1) uniform AtmosphereRenderBufferData{
     vec3 sun_direction;
@@ -45,6 +47,10 @@ layout(std140, binding = 1) uniform AtmosphereRenderBufferData{
     float pcss_size_k;
 
     mat4 uCloudShadowMapMat;
+};
+
+layout(std140, binding = 2) uniform EnvRadianceSH {
+    vec4 Llm[9];
 };
 
 vec3 ComputeRaymarchingStartPositionAndChangeDistance(vec3 view_direction, inout float marching_distance) {
@@ -275,7 +281,7 @@ void main() {
 in vec2 vTexCoord;
 layout(location = 0) out vec4 FragColor;
 
-vec3 ComputeObjectLuminance(vec3 position, vec3 view_direction) {
+vec3 ComputeObjectLuminance(vec3 position, vec3 view_direction, float shadow_visibility) {
     float r = length(position - earth_center);
     vec3 object_up_direction = normalize(position - earth_center);
     float mu_s = dot(sun_direction, object_up_direction);
@@ -311,7 +317,10 @@ vec3 ComputeObjectLuminance(vec3 position, vec3 view_direction) {
     float NdotH = clamp(dot(N, H), 0, 1);
     float HdotV = clamp(dot(H, V), 0, 1);
     vec3 brdf = BRDF(NdotL, NdotV, NdotH, HdotV, material_data);
-    return brdf * solar_illuminance_at_object * NdotL;
+    vec3 direct_lumiance = brdf * solar_illuminance_at_object * (NdotL * shadow_visibility);
+    vec3 ambient_lumiance = GetAmbient(env_brdf_lut, ROUGHNESS_COUNT - 1, prefiltered_radiance_texture, V, material_data, Llm);
+    float ambient_fade = clamp(10.0 - 0.1 * length(position - camera_position), 0, 1);
+    return direct_lumiance + ambient_lumiance * ambient_fade;
 }
 
 vec3 GetStarLuminance(sampler2D star_luminance, vec3 view_direction) {
@@ -393,12 +402,11 @@ void main() {
     luminance *= SampleRayScatterVisibility(cloud_shadow_froxel, vTexCoord, marching_distance, uInvShadowFroxelMaxDistance);
 
     if (intersect_object) {
-        vec3 visibility = transmittance;
-        visibility *= SampleVisibilityFromShadowMap(fragment_position);
+        float shadow_visibility = SampleVisibilityFromShadowMap(fragment_position);
 #if MOON_SHADOW_ENABLE
-        visibility *= GetVisibilityFromMoonShadow(moon_position - fragment_position, moon_radius, sun_direction);
+        shadow_visibility *= GetVisibilityFromMoonShadow(moon_position - fragment_position, moon_radius, sun_direction);
 #endif
-        luminance += visibility * ComputeObjectLuminance(fragment_position, view_direction);
+        luminance += transmittance * ComputeObjectLuminance(fragment_position, view_direction, shadow_visibility);
     }
     else if (dot(view_direction, sun_direction) >= cos(sun_angular_radius)) {
         // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf

@@ -5,6 +5,7 @@
 #include "gl.hpp"
 #include "GLReloadableProgram.h"
 #include "Earth.h"
+#include "IBL.h"
 #include "PerformanceMarker.h"
 #include "Serialization.h"
 
@@ -126,4 +127,6 @@ private:
     GLReloadableComputeProgram aerial_perspective_program_;
     GLReloadableComputeProgram environment_luminance_program_;
     GLReloadableProgram render_program_;
+
+    IBL ibl_;
 };

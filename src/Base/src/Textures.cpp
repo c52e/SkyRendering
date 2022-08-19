@@ -1,6 +1,7 @@
 #include "Textures.h"
 
 #include "ImageLoader.h"
+#include "GLReloadableProgram.h"
 
 Textures::Textures() {
     {
@@ -55,5 +56,21 @@ Textures::Textures() {
         glTextureSubImage2D(earth_albedo_.id(), 0, 0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data.get());
     }
     glGenerateTextureMipmap(earth_albedo_.id());
+
+    {
+        constexpr int kSizeX = 512;
+        constexpr int kSizeY = 512;
+        env_brdf_lut_.Create(GL_TEXTURE_2D);
+        glTextureStorage2D(env_brdf_lut_.id(), 1, GL_RG16, kSizeX, kSizeY);
+        GLReloadableComputeProgram program = {
+            "../shaders/Base/EnvBRDFLut.comp",
+            {{8, 8}},
+            [](const std::string& src) { return std::string("#version 460\n") + src; }
+        };
+        glUseProgram(program.id());
+        GLBindImageTextures({ env_brdf_lut_.id() });
+        program.Dispatch({ kSizeX, kSizeY });
+        glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+    }
 }
 
