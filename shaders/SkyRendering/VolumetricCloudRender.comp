@@ -26,7 +26,9 @@ layout(std140, binding = 2) uniform VolumetricCloudBufferData {
     float uSunMultiscatteringSigmaScale;
     float uEnvMultiscatteringSigmaScale;
 	float uShadowDistance;
-    float padding_;
+	float uEnvBottomVisibility;
+	vec3 padding_;
+	float uEnvSunHeightCurveExp;
 };
 
 struct Intersect {
@@ -82,7 +84,7 @@ struct RayMarchContext {
 
 float SunCosTheta(vec3 pos) {
     vec3 up = normalize(vec3(pos.xy, pos.z + uEarthRadius));
-    return dot(up, uSunDirection);
+    return clamp(dot(up, uSunDirection), 0, 1);
 }
 
 void UpdateContext(inout RayMarchContext ctx, vec3 view_dir) {
@@ -124,7 +126,8 @@ void RayMarchStep(inout RayMarchContext ctx) {
                       HenyeyGreenstein(ctx.cos_sun_view, 0.85),
                       exp(-uSunMultiscatteringSigmaScale * sigma_t) /* * transmittance_to_sun*/);
     sun_env.r = transmittance_to_sun * phase;
-    sun_env.g = ctx.height01 * (1 - exp(-uEnvMultiscatteringSigmaScale * sigma_t));
+    sun_env.g = mix(uEnvBottomVisibility, 1.0, ctx.height01);
+    sun_env.g = sun_env.g - sun_env.g * exp(-uEnvMultiscatteringSigmaScale * sigma_t);
 
     sun_env = sun_env - sun_env * tr;
     ctx.sun_env += ctx.transmittance * sun_env;
@@ -187,7 +190,7 @@ void main() {
     imageStore(cloud_distance_image, pos, vec4(average_t));
     vec3 average_pos = uCameraPos + view_dir * average_t;
     vec3 luminance = ctx.sun_env.r * uSunIlluminanceScale * GetSunVisibility(transmittance_texture, average_pos) * solar_illuminance
-                   + ctx.sun_env.g * clamp(SunCosTheta(average_pos), 0.05, 1.0) * uEnvColorScale;
+                   + ctx.sun_env.g * pow(SunCosTheta(average_pos), uEnvSunHeightCurveExp) * uEnvColorScale;
     
     vec3 atmosphere_transmittance;
     vec3 atmosphere_luminance = GetAerialPerspective(aerial_perspective_luminance_texture,

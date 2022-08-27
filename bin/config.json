@@ -120,6 +120,7 @@
     "smaa_option_": "SMAA_PRESET_HIGH",
     "volumetric_cloud_": {
         "bottom_altitude_": 1.6759999990463257,
+        "env_bottom_visibility": 0.3919999897480011,
         "env_color_": [
             0.6372548937797546,
             0.7652825117111206,
@@ -127,6 +128,7 @@
         ],
         "env_color_scale_": 0.2750000059604645,
         "env_multiscattering_sigma_scale": 0.5,
+        "env_sun_height_curve_exp": 0.8130000233650208,
         "material": {
             "type": "class VolumetricCloudDefaultMaterial1",
             "data": {
