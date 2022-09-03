@@ -44,7 +44,9 @@ struct VolumetricCloudBufferData {
 	float uSunMultiscatteringSigmaScale;
 	float uEnvMultiscatteringSigmaScale;
 	float uShadowDistance;
-	float padding_;
+	float uEnvBottomVisibility;
+	glm::vec3 padding_;
+	float uEnvSunHeightCurveExp;
 };
 
 static const glm::ivec2 kShadowMapResolution{ 512, 512 };
@@ -263,6 +265,8 @@ void VolumetricCloud::Update(const Camera& camera, const Earth& earth, const Atm
 	buffer.uShadowDistance = shadow_distance_;
 	buffer.uSunMultiscatteringSigmaScale = sun_multiscattering_sigma_scale;
 	buffer.uEnvMultiscatteringSigmaScale = env_multiscattering_sigma_scale;
+	buffer.uEnvBottomVisibility = env_bottom_visibility;
+	buffer.uEnvSunHeightCurveExp = env_sun_height_curve_exp;
 
 	glNamedBufferSubData(buffer_.id(), 0, sizeof(buffer), &buffer);
 
@@ -457,6 +461,8 @@ void VolumetricCloud::DrawGUI() {
 	ImGui::SliderFloat("Shadow Froxel Max Distance", &shadow_froxel_max_distance, 0.0f, 100.0f);
 	ImGui::SliderFloat("Sun Multiscattering Sigma Scale", &sun_multiscattering_sigma_scale, 0.0f, 5.0f);
 	ImGui::SliderFloat("Environment Multiscattering Sigma Scale", &env_multiscattering_sigma_scale, 0.0f, 5.0f);
+	ImGui::SliderFloat("Environment Bottom Visibility", &env_bottom_visibility, 0.0f, 1.0f);
+	ImGui::SliderFloat("Environment Sun Height Curve Exp", &env_sun_height_curve_exp, 0.001f, 2.0f);
 	auto b_material_tree_node = ImGui::TreeNode("Material");
 	if (ImGui::BeginPopupContextItem()) {
 		for (const auto& [name, factory] : reflection::SubclassInfo<IVolumetricCloudMaterial>::GetFactoryTable()) {
