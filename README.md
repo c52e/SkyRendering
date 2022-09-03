@@ -24,17 +24,18 @@ Build and run.
 [video](https://c52e.github.io/SkyRendering/data/godray.mp4) (higher quality than gif)  
 ![godray](https://github.com/c52e/SkyRendering/blob/gh-pages/data/godray.gif)
 
-## Voxel Version
+## Path Tracing Results
+
+![screenshot4](https://c52e.github.io/SkyRendering/data/wdas1.jpg)
+![screenshot5](https://c52e.github.io/SkyRendering/data/wdas2.jpg)
+
+To make voxel material available, you need to install OpenVDB and apply user-wide integration:
 
 ```
-git clone git@github.com:c52e/SkyRendering.git --branch voxel --single-branch
 vcpkg install openvdb:x64-windows
 vcpkg integrate install
 ```
 
-### Path Tracing Results
+Download [vcpkg](https://github.com/microsoft/vcpkg)
 
-Download [Disney cloud](https://disneyanimation.com/resources/clouds/)
-
-![screenshot4](https://c52e.github.io/SkyRendering/data/wdas1.jpg)
-![screenshot5](https://c52e.github.io/SkyRendering/data/wdas2.jpg)
+Download high-resolution [Disney cloud](https://disneyanimation.com/resources/clouds/)
