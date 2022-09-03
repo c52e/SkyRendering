@@ -30,10 +30,10 @@ protected:
 	GLFWwindow* window;
 
 	// 全屏和窗口切换时临时保存信息
-	int xpos_;
-	int ypos_;
-	int width_;
-	int height_;
+	int xpos_{};
+	int ypos_{};
+	int width_{};
+	int height_{};
 
 private:
 	virtual void HandleDisplayEvent() = 0;

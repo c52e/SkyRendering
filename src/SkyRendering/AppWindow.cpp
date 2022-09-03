@@ -70,7 +70,7 @@ void AppWindow::Init(const char* config_path) {
     {
         auto model = glm::identity<glm::mat4>();
         model = glm::translate(model, glm::vec3(0, 1, 3));
-        model = glm::scale(model, glm::vec3(0.4));
+        model = glm::scale(model, glm::vec3(0.4f));
         auto object = std::make_unique<MeshObject>("Tiny Moon", Meshes::Instance().sphere(), model, true);
         object->material.albedo_texture = Textures::Instance().moon_albedo();
         object->material.normal_texture = Textures::Instance().moon_normal();
@@ -574,8 +574,6 @@ void AppWindow::HandleKeyboardEvent(int key) {
     case GLFW_KEY_SPACE:
         draw_gui_enable_ = !draw_gui_enable_;
         break;
-    default:
-        ;
     }
 }
 

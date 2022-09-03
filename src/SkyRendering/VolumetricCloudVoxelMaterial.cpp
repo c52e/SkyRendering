@@ -1,6 +1,14 @@
 #include "VolumetricCloudVoxelMaterial.h"
 
+#if __has_include(<openvdb/openvdb.h>)
+#define HAS_INCLUDE_OPENVDB 1
 #include <openvdb/openvdb.h>
+#else
+#define HAS_INCLUDE_OPENVDB 0
+#include <Windows.h>
+#undef max
+#undef min
+#endif
 
 #include <imgui.h>
 
@@ -28,7 +36,7 @@ VolumetricCloudVoxelMaterial::VolumetricCloudVoxelMaterial() {
 	float border_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	glSamplerParameterfv(sampler_.id(), GL_TEXTURE_BORDER_COLOR, border_color);
 
-
+#if HAS_INCLUDE_OPENVDB
     openvdb::initialize();
 	std::string path = "../data/wdas/wdas_cloud_sixteenth.vdb";
     openvdb::io::File file(path);
@@ -65,6 +73,17 @@ VolumetricCloudVoxelMaterial::VolumetricCloudVoxelMaterial() {
 		, GL_R8, voxel_dim_.x, voxel_dim_.y, voxel_dim_.z);
 	glTextureSubImage3D(voxel_.id(), 0, 0, 0, 0, voxel_dim_.x, voxel_dim_.y, voxel_dim_.z, GL_RED, GL_FLOAT, data.data());
 	glGenerateTextureMipmap(voxel_.id());
+#else
+#define OPENVDB_NOT_FOUND_MSG \
+	"  To make voxel material available, you need to install OpenVDB and apply user-wide integration:\n\n" \
+	"    vcpkg install openvdb:x64-windows\n" \
+	"    vcpkg integrate install\n\n" \
+	"  Then restart Visual Studio and rebuild the project\n\n" \
+	"  You can download vcpkg from https://github.com/microsoft/vcpkg \n"
+#pragma message(OPENVDB_NOT_FOUND_MSG)
+	MessageBoxA(0, OPENVDB_NOT_FOUND_MSG, "Error", MB_OK);
+	throw std::runtime_error(OPENVDB_NOT_FOUND_MSG);
+#endif
 }
 
 std::string VolumetricCloudVoxelMaterial::ShaderPath() {

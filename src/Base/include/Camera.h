@@ -55,10 +55,10 @@ public:
 private:
 	void UpdateVectors();
 
-	glm::vec3 position_;
-	glm::vec3 front_;
-	glm::vec3 right_;
-	glm::vec3 up_;
+	glm::vec3 position_{};
+	glm::vec3 front_{};
+	glm::vec3 right_{};
+	glm::vec3 up_{};
 
 	float yaw_{};
 	float pitch_{};

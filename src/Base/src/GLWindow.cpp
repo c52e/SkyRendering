@@ -246,7 +246,7 @@ void GLWindow::Error(const std::string& msg) {
 
 void GLWindow::ScreenShot(const char* path) {
     auto [width, height] = GetWindowSize();
-    auto pixels = std::make_unique<std::byte[]>(width * height * 3);
+    auto pixels = std::make_unique<std::byte[]>(static_cast<size_t>(width) * height * 3);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.get());
     stbi_write_png(path, width, height, 3, pixels.get(), width * 3);
 }
